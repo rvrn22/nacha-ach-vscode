@@ -148,6 +148,14 @@ export function activate(context: vscode.ExtensionContext) {
 
 				const t = text.charAt(0);
 
+				// File header gets its own color
+				if (t === '1') {
+					const colorIdx = batchIndex % batchRowDecorations.length;
+					perDecorationRanges[colorIdx].push(line.range);
+					batchIndex++;
+					continue;
+				}
+
 				if (t === '5' && !inBatch) {
 					inBatch = true;
 					batchStart = i;
@@ -163,6 +171,13 @@ export function activate(context: vscode.ExtensionContext) {
 					batchIndex++;
 					inBatch = false;
 					batchStart = -1;
+					continue;
+				}
+
+				// File control (type 9) gets the current batch color
+				if (t === '9') {
+					const colorIdx = batchIndex % batchRowDecorations.length;
+					perDecorationRanges[colorIdx].push(line.range);
 					continue;
 				}
 			}
