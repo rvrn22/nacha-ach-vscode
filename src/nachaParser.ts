@@ -147,12 +147,22 @@ export function parseAch(text: string): AchDiagnostic[] {
             severity: 1,
           });
         }
-        if (i !== lines.length - 1 && hasNonEmptyAfter(lines, i)) {
+        // Check if there are non-padding records after type 9
+        let hasNonPaddingAfter = false;
+        for (let j = i + 1; j < lines.length; j++) {
+          const afterLine = lines[j];
+          if (afterLine.length > 0 && !/^9+$/.test(afterLine)) {
+            hasNonPaddingAfter = true;
+            break;
+          }
+        }
+        
+        if (hasNonPaddingAfter) {
           diags.push({
             line: i,
             start: 0,
             end: 1,
-            message: 'File Control (type 9) should be the final record in the file',
+            message: 'File Control (type 9) should be the final record in the file (padding rows allowed)',
             severity: 1,
           });
         }
