@@ -64,7 +64,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Field-level decorations (alternating colors for field boundaries)
 	const fieldDecorationPalette = [
-		'rgba(4, 75, 133, 1)',
+		'rgba(1, 87, 43, 1)',
 		'rgba(93, 4, 246, 1)',
 	];
 	const fieldDecorations: vscode.TextEditorDecorationType[] = fieldDecorationPalette.map(color =>
