@@ -2,7 +2,7 @@
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
 import { parseAch, parseAchSummary, type AchDiagnostic } from './nachaParser';
-import { recordTypeDescriptions, getFieldAtPosition } from './nachaFields';
+import { recordTypeDescriptions, getFieldAtPosition, recordFields } from './nachaFields';
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -42,8 +42,8 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Batch-based row highlighting (alternate colors per batch)
 	const batchRowPalette = [
-		'rgba(66,165,245,0.14)', // blue lighten
-		'rgba(255,213,79,0.16)', // amber lighten
+		'rgba(247, 211, 161, 1)', // blue lighten
+		'rgba(249, 241, 215, 1)', // amber lighten
 	];
 	const batchRowDecorations: vscode.TextEditorDecorationType[] = batchRowPalette.map(color =>
 		vscode.window.createTextEditorDecorationType({
@@ -61,6 +61,18 @@ export function activate(context: vscode.ExtensionContext) {
 		opacity: '0.6'
 	});
 	context.subscriptions.push(paddingRowDecoration);
+
+	// Field-level decorations (alternating colors for field boundaries)
+	const fieldDecorationPalette = [
+		'rgba(4, 75, 133, 1)',
+		'rgba(93, 4, 246, 1)',
+	];
+	const fieldDecorations: vscode.TextEditorDecorationType[] = fieldDecorationPalette.map(color =>
+		vscode.window.createTextEditorDecorationType({
+			color: color,
+		})
+	);
+	fieldDecorations.forEach(d => context.subscriptions.push(d));
 
 	const runOnAch = (doc: vscode.TextDocument) => {
 		if (doc.languageId !== 'ach') {
@@ -178,94 +190,130 @@ export function activate(context: vscode.ExtensionContext) {
 			editor.setDecorations(paddingRowDecoration, paddingRanges);
 		};
 
-	const updateForEditor = () => {
-		const editor = vscode.window.activeTextEditor;
-		if (editor && editor.document.languageId === 'ach') {
-			runOnAch(editor.document);
-			applyBatchRowDecorations(editor);
-		} else {
-			statusBarItem.hide();
-			const ed = editor;
-			if (ed) {
-				for (const t of Object.keys(recordDecorations)) {
-					ed.setDecorations(recordDecorations[t], []);
-				}
-				for (const d of batchRowDecorations) {
-					ed.setDecorations(d, []);
-				}
-				ed.setDecorations(paddingRowDecoration, []);
+	const applyFieldDecorations = (editor: vscode.TextEditor) => {
+		const doc = editor.document;
+		const lineCount = doc.lineCount;
+		const perDecorationRanges: vscode.Range[][] = fieldDecorations.map(() => []);
+
+		const isPaddingRow = (text: string) => text.length === 94 && /^9{94}$/.test(text);
+
+		for (let i = 0; i < lineCount; i++) {
+			const line = doc.lineAt(i);
+			const text = line.text;
+			if (text.length === 0 || isPaddingRow(text)) { continue; }
+
+			const recordType = text.charAt(0);
+			const fields = recordFields[recordType];
+
+			if (!fields) { continue; }
+
+			// Apply alternating colors to fields
+			for (let fieldIdx = 0; fieldIdx < fields.length; fieldIdx++) {
+				const field = fields[fieldIdx];
+				const colorIdx = fieldIdx % fieldDecorations.length;
+				const startPos = new vscode.Position(i, field.start);
+				const endPos = new vscode.Position(i, Math.min(field.end, text.length));
+				perDecorationRanges[colorIdx].push(new vscode.Range(startPos, endPos));
 			}
+		}
+
+		for (let idx = 0; idx < fieldDecorations.length; idx++) {
+			editor.setDecorations(fieldDecorations[idx], perDecorationRanges[idx]);
 		}
 	};
 
-	if (vscode.window.activeTextEditor) {
-		updateForEditor();
-	}
-
-	// Register hover provider for ACH files
-	const hoverProvider = vscode.languages.registerHoverProvider('ach', {
-		provideHover(document: vscode.TextDocument, position: vscode.Position): vscode.Hover | undefined {
-			const line = document.lineAt(position.line);
-			const text = line.text;
-			
-			if (text.length === 0) {
-				return undefined;
+	const updateForEditor = () => {
+	const editor = vscode.window.activeTextEditor;
+	if (editor && editor.document.languageId === 'ach') {
+		runOnAch(editor.document);
+		applyBatchRowDecorations(editor);
+		applyFieldDecorations(editor);
+	} else {
+		statusBarItem.hide();
+		const ed = editor;
+		if (ed) {
+			for (const t of Object.keys(recordDecorations)) {
+				ed.setDecorations(recordDecorations[t], []);
 			}
-
-			const recordType = text.charAt(0);
-			const recordDesc = recordTypeDescriptions[recordType];
-			
-			if (!recordDesc) {
-				return undefined;
+			for (const d of batchRowDecorations) {
+				ed.setDecorations(d, []);
 			}
-
-			// Check for padding row
-			if (text.length === 94 && /^9{94}$/.test(text)) {
-				return new vscode.Hover(
-					new vscode.MarkdownString(
-						`**Padding Record**\n\nBlocking/filler record used to pad file to required block size (multiple of 10 records).`
-					)
-				);
+			ed.setDecorations(paddingRowDecoration, []);
+			for (const d of fieldDecorations) {
+				ed.setDecorations(d, []);
 			}
-
-			const field = getFieldAtPosition(recordType, position.character);
-			
-			if (!field) {
-				// Show record type info if not over a specific field
-				return new vscode.Hover(
-					new vscode.MarkdownString(`**${recordDesc}**`)
-				);
-			}
-
-			// Build hover content with field details
-			const value = text.substring(field.start, field.end).trim();
-			const markdown = new vscode.MarkdownString();
-			markdown.appendMarkdown(`**${field.name}**\n\n`);
-			markdown.appendMarkdown(`${field.description}\n\n`);
-			markdown.appendMarkdown(`---\n\n`);
-			markdown.appendMarkdown(`**Position:** ${field.start + 1}-${field.end} (${field.end - field.start} chars)\n\n`);
-			if (value) {
-				markdown.appendCodeblock(value, 'text');
-			}
-
-			return new vscode.Hover(markdown);
 		}
-	});
-	context.subscriptions.push(hoverProvider);
+	}
+};
 
-	context.subscriptions.push(
-		vscode.workspace.onDidOpenTextDocument(doc => {
-			if (doc.languageId === 'ach') {
-				updateForEditor();
-			}
-		}),
-		vscode.window.onDidChangeActiveTextEditor(() => updateForEditor()),
-		vscode.workspace.onDidChangeTextDocument(e => {
-			if (e.document.languageId === 'ach') {
-				updateForEditor();
-			}
-		})
-	);
+if (vscode.window.activeTextEditor) {
+	updateForEditor();
+}
+
+// Register hover provider for ACH files
+const hoverProvider = vscode.languages.registerHoverProvider('ach', {
+	provideHover(document: vscode.TextDocument, position: vscode.Position): vscode.Hover | undefined {
+		const line = document.lineAt(position.line);
+		const text = line.text;
+		
+		if (text.length === 0) {
+			return undefined;
+		}
+
+		const recordType = text.charAt(0);
+		const recordDesc = recordTypeDescriptions[recordType];
+		
+		if (!recordDesc) {
+			return undefined;
+		}
+
+		// Check for padding row
+		if (text.length === 94 && /^9{94}$/.test(text)) {
+			return new vscode.Hover(
+				new vscode.MarkdownString(
+					`**Padding Record**\n\nBlocking/filler record used to pad file to required block size (multiple of 10 records).`
+				)
+			);
+		}
+
+		const field = getFieldAtPosition(recordType, position.character);
+		
+		if (!field) {
+			// Show record type info if not over a specific field
+			return new vscode.Hover(
+				new vscode.MarkdownString(`**${recordDesc}**`)
+			);
+		}
+
+		// Build hover content with field details
+		const value = text.substring(field.start, field.end).trim();
+		const markdown = new vscode.MarkdownString();
+		markdown.appendMarkdown(`**${field.name}**\n\n`);
+		markdown.appendMarkdown(`${field.description}\n\n`);
+		markdown.appendMarkdown(`---\n\n`);
+		markdown.appendMarkdown(`**Position:** ${field.start + 1}-${field.end} (${field.end - field.start} chars)\n\n`);
+		if (value) {
+			markdown.appendCodeblock(value, 'text');
+		}
+
+		return new vscode.Hover(markdown);
+	}
+});
+context.subscriptions.push(hoverProvider);
+
+context.subscriptions.push(
+	vscode.workspace.onDidOpenTextDocument(doc => {
+		if (doc.languageId === 'ach') {
+			updateForEditor();
+		}
+	}),
+	vscode.window.onDidChangeActiveTextEditor(() => updateForEditor()),
+	vscode.workspace.onDidChangeTextDocument(e => {
+		if (e.document.languageId === 'ach') {
+			updateForEditor();
+		}
+	})
+);
 }
 
 // This method is called when your extension is deactivated
