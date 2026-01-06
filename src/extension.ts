@@ -62,6 +62,16 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 	context.subscriptions.push(paddingRowDecoration);
 
+	// Virtual spacing decoration (adds visual separation between batches)
+	const batchSeparatorDecoration = vscode.window.createTextEditorDecorationType({
+		isWholeLine: true,
+		// backgroundColor: 'rgba(150,150,150,0.1)',
+		borderWidth: '0 0 1px 0',
+		borderStyle: 'solid',
+		borderColor: 'rgba(100,100,100,0.4)'
+	});
+	context.subscriptions.push(batchSeparatorDecoration);
+
 	// Field-level decorations (alternating colors for field boundaries)
 	const fieldDecorationPalette = [
 		'rgba(1, 87, 43, 1)',
@@ -123,86 +133,90 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	};
 
-		const applyBatchRowDecorations = (editor: vscode.TextEditor) => {
-			const doc = editor.document;
-			const lineCount = doc.lineCount;
-			const perDecorationRanges: vscode.Range[][] = batchRowDecorations.map(() => []);
-			const paddingRanges: vscode.Range[] = [];
-			let inBatch = false;
-			let batchStart = -1;
-			let batchIndex = 0;
+	const applyBatchRowDecorations = (editor: vscode.TextEditor) => {
+		const doc = editor.document;
+		const lineCount = doc.lineCount;
+		const perDecorationRanges: vscode.Range[][] = batchRowDecorations.map(() => []);
+		const paddingRanges: vscode.Range[] = [];
+		const separatorRanges: vscode.Range[] = [];
+		let inBatch = false;
+		let batchStart = -1;
+		let batchIndex = 0;
 
-			const isBatchRecord = (t: string) => t === '5' || t === '6' || t === '7' || t === '8';
-			const isPaddingRow = (text: string) => text.length === 94 && /^9{94}$/.test(text);
+		const isBatchRecord = (t: string) => t === '5' || t === '6' || t === '7' || t === '8';
+		const isPaddingRow = (text: string) => text.length === 94 && /^9{94}$/.test(text);
 
-			for (let i = 0; i < lineCount; i++) {
-				const line = doc.lineAt(i);
-				const text = line.text;
-				if (text.length === 0) { continue; }
+		for (let i = 0; i < lineCount; i++) {
+			const line = doc.lineAt(i);
+			const text = line.text;
+			if (text.length === 0) { continue; }
 
-				// Check for padding rows
-				if (isPaddingRow(text)) {
-					paddingRanges.push(line.range);
-					continue;
-				}
-
-				const t = text.charAt(0);
-
-				// File header gets its own color
-				if (t === '1') {
-					const colorIdx = batchIndex % batchRowDecorations.length;
-					perDecorationRanges[colorIdx].push(line.range);
-					batchIndex++;
-					continue;
-				}
-
-				if (t === '5' && !inBatch) {
-					inBatch = true;
-					batchStart = i;
-					continue;
-				}
-
-				if (t === '8' && inBatch) {
-					// finalize batch range from batchStart..i
-					const colorIdx = batchIndex % batchRowDecorations.length;
-					for (let j = batchStart; j <= i; j++) {
-						perDecorationRanges[colorIdx].push(doc.lineAt(j).range);
-					}
-					batchIndex++;
-					inBatch = false;
-					batchStart = -1;
-					continue;
-				}
-
-				// File control (type 9) gets the current batch color
-				if (t === '9') {
-					const colorIdx = batchIndex % batchRowDecorations.length;
-					perDecorationRanges[colorIdx].push(line.range);
-					continue;
-				}
+			// Check for padding rows
+			if (isPaddingRow(text)) {
+				paddingRanges.push(line.range);
+				continue;
 			}
 
-			// If file ends with an open batch (missing 8), highlight until last batch line
-			if (inBatch && batchStart >= 0) {
+			const t = text.charAt(0);
+
+			// File header gets its own color
+			if (t === '1') {
 				const colorIdx = batchIndex % batchRowDecorations.length;
-				for (let j = batchStart; j < lineCount; j++) {
-					const text = doc.lineAt(j).text;
-					if (text.length === 0) { continue; }
-					const t = text.charAt(0);
-					if (!isBatchRecord(t)) { break; }
+				perDecorationRanges[colorIdx].push(line.range);
+				batchIndex++;
+				continue;
+			}
+
+			if (t === '5' && !inBatch) {
+				inBatch = true;
+				batchStart = i;
+				continue;
+			}
+
+			if (t === '8' && inBatch) {
+				// finalize batch range from batchStart..i
+				const colorIdx = batchIndex % batchRowDecorations.length;
+				for (let j = batchStart; j <= i; j++) {
 					perDecorationRanges[colorIdx].push(doc.lineAt(j).range);
 				}
+				// Add separator after batch control record
+				separatorRanges.push(doc.lineAt(i).range);
+				batchIndex++;
+				inBatch = false;
+				batchStart = -1;
+				continue;
 			}
 
-			// Clear old per-type decorations and apply batch decorations
-			for (const t of Object.keys(recordDecorations)) {
-				editor.setDecorations(recordDecorations[t], []);
+			// File control (type 9) gets the current batch color
+			if (t === '9') {
+				const colorIdx = batchIndex % batchRowDecorations.length;
+				perDecorationRanges[colorIdx].push(line.range);
+				continue;
 			}
-			for (let idx = 0; idx < batchRowDecorations.length; idx++) {
-				editor.setDecorations(batchRowDecorations[idx], perDecorationRanges[idx]);
+		}
+
+		// If file ends with an open batch (missing 8), highlight until last batch line
+		if (inBatch && batchStart >= 0) {
+			const colorIdx = batchIndex % batchRowDecorations.length;
+			for (let j = batchStart; j < lineCount; j++) {
+				const text = doc.lineAt(j).text;
+				if (text.length === 0) { continue; }
+				const t = text.charAt(0);
+				if (!isBatchRecord(t)) { break; }
+				perDecorationRanges[colorIdx].push(doc.lineAt(j).range);
 			}
-			editor.setDecorations(paddingRowDecoration, paddingRanges);
-		};
+		}
+
+		// Clear old per-type decorations and apply batch decorations
+		for (const t of Object.keys(recordDecorations)) {
+			editor.setDecorations(recordDecorations[t], []);
+		}
+		for (let idx = 0; idx < batchRowDecorations.length; idx++) {
+			editor.setDecorations(batchRowDecorations[idx], perDecorationRanges[idx]);
+		}
+		editor.setDecorations(paddingRowDecoration, paddingRanges);
+		editor.setDecorations(batchSeparatorDecoration, separatorRanges);
+	};
 
 	const applyFieldDecorations = (editor: vscode.TextEditor) => {
 		const doc = editor.document;
@@ -253,6 +267,7 @@ export function activate(context: vscode.ExtensionContext) {
 				ed.setDecorations(d, []);
 			}
 			ed.setDecorations(paddingRowDecoration, []);
+			ed.setDecorations(batchSeparatorDecoration, []);
 			for (const d of fieldDecorations) {
 				ed.setDecorations(d, []);
 			}
