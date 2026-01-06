@@ -9,9 +9,25 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onLanguage:ach"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
+    "languages": [
+      {
+        "id": "ach",
+        "aliases": ["ACH", "NACHA"],
+        "extensions": [".ach"]
+      }
+    ],
+    "grammars": [
+      {
+        "language": "ach",
+        "scopeName": "source.ach",
+        "path": "./syntaxes/ach.tmLanguage.json"
+      }
+    ],
     "commands": [
       {
         "command": "nacha-file-parser.helloWorld",

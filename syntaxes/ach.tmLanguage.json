@@ -1,0 +1,70 @@
+{
+  "scopeName": "source.ach",
+  "name": "NACHA ACH",
+  "patterns": [
+    {
+      "name": "keyword.control.ach.record-type",
+      "match": "^(?:1|5|6|7|8|9)"
+    },
+    {
+      "name": "entity.name.section.ach.file-header",
+      "begin": "^1",
+      "end": "$",
+      "patterns": [
+        { "name": "constant.numeric.ach", "match": "[0-9]+" },
+        { "name": "string.unquoted.ach", "match": "[A-Za-z&'(),./\\-]+" },
+        { "name": "punctuation.separator.ach", "match": "\s" }
+      ]
+    },
+    {
+      "name": "entity.name.section.ach.batch-header",
+      "begin": "^5",
+      "end": "$",
+      "patterns": [
+        { "name": "constant.numeric.ach", "match": "[0-9]+" },
+        { "name": "string.unquoted.ach", "match": "[A-Za-z&'(),./\\-]+" },
+        { "name": "punctuation.separator.ach", "match": "\s" }
+      ]
+    },
+    {
+      "name": "support.type.ach.entry-detail",
+      "begin": "^6",
+      "end": "$",
+      "patterns": [
+        { "name": "constant.numeric.ach", "match": "[0-9]+" },
+        { "name": "string.unquoted.ach", "match": "[A-Za-z&'(),./\\-]+" },
+        { "name": "punctuation.separator.ach", "match": "\s" }
+      ]
+    },
+    {
+      "name": "support.type.ach.addenda",
+      "begin": "^7",
+      "end": "$",
+      "patterns": [
+        { "name": "constant.numeric.ach", "match": "[0-9]+" },
+        { "name": "string.unquoted.ach", "match": "[A-Za-z&'(),./\\-]+" },
+        { "name": "punctuation.separator.ach", "match": "\s" }
+      ]
+    },
+    {
+      "name": "entity.name.section.ach.batch-control",
+      "begin": "^8",
+      "end": "$",
+      "patterns": [
+        { "name": "constant.numeric.ach", "match": "[0-9]+" },
+        { "name": "string.unquoted.ach", "match": "[A-Za-z&'(),./\\-]+" },
+        { "name": "punctuation.separator.ach", "match": "\s" }
+      ]
+    },
+    {
+      "name": "entity.name.section.ach.file-control",
+      "begin": "^9",
+      "end": "$",
+      "patterns": [
+        { "name": "constant.numeric.ach", "match": "[0-9]+" },
+        { "name": "string.unquoted.ach", "match": "[A-Za-z&'(),./\\-]+" },
+        { "name": "punctuation.separator.ach", "match": "\s" }
+      ]
+    }
+  ]
+}

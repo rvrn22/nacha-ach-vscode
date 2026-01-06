@@ -1,6 +1,7 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
+import { parseAch, type AchDiagnostic } from './nachaParser';
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -20,6 +21,40 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 
 	context.subscriptions.push(disposable);
+
+	const runOnAch = (doc: vscode.TextDocument) => {
+		if (doc.languageId !== 'ach') {
+			return;
+		}
+
+		const diagnostics: vscode.Diagnostic[] = [];
+		const achDiags: AchDiagnostic[] = parseAch(doc.getText());
+		for (const d of achDiags) {
+			const range = new vscode.Range(
+				new vscode.Position(d.line, d.start),
+				new vscode.Position(d.line, d.end)
+			);
+			diagnostics.push(new vscode.Diagnostic(range, d.message, d.severity));
+		}
+		diagnosticCollection.set(doc.uri, diagnostics);
+	};
+
+	if (vscode.window.activeTextEditor) {
+		runOnAch(vscode.window.activeTextEditor.document);
+	}
+
+	const diagnosticCollection = vscode.languages.createDiagnosticCollection('ach');
+	context.subscriptions.push(diagnosticCollection);
+
+	context.subscriptions.push(
+		vscode.workspace.onDidOpenTextDocument(runOnAch),
+		vscode.window.onDidChangeActiveTextEditor(editor => {
+			if (editor) {
+				runOnAch(editor.document);
+			}
+		}),
+		vscode.workspace.onDidChangeTextDocument(e => runOnAch(e.document))
+	);
 }
 
 // This method is called when your extension is deactivated
