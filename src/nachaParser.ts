@@ -216,7 +216,8 @@ export function parseAchSummary(text: string): AchSummary {
   let totalDebit = 0;
   let totalCredit = 0;
 
-  for (const line of lines) {
+  for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+    const line = lines[lineIdx];
     if (line.length === 0) {
       continue;
     }
@@ -226,18 +227,21 @@ export function parseAchSummary(text: string): AchSummary {
       batches++;
     } else if (type === '6') {
       entries++;
-      // Transaction code at position 1-2 determines debit/credit
-      // Amount is at positions 29-39 (10 digits, in cents)
+      
       if (line.length >= 39) {
         const transactionCode = line.substring(1, 3);
         const amountStr = line.substring(29, 39);
         const amount = parseInt(amountStr, 10) / 100; // Convert cents to dollars
         
-        if (!isNaN(amount)) {
-          // Transaction codes: 22,32,52 are credits; 27,37,47 are debits
-          if (['22', '23', '24', '32', '33', '34', '52', '53', '54'].includes(transactionCode)) {
+        if (!isNaN(amount) && amount > 0) {
+          // ACH Transaction codes:
+          // X0-X4 = Credits (20-24, 30-34, 40-44, 50-54)
+          // X5-X9 = Debits (25-29, 35-39, 45-49, 55-59)
+          const lastDigit = parseInt(transactionCode.charAt(1), 10);
+          
+          if (lastDigit >= 0 && lastDigit <= 4) {
             totalCredit += amount;
-          } else if (['27', '28', '29', '37', '38', '39', '47', '48', '49'].includes(transactionCode)) {
+          } else if (lastDigit >= 5 && lastDigit <= 9) {
             totalDebit += amount;
           }
         }

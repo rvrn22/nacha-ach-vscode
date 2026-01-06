@@ -95,14 +95,13 @@ export function activate(context: vscode.ExtensionContext) {
 
 		// Update status bar
 		const summary = parseAchSummary(text);
-		const netSign = summary.netAmount >= 0 ? '+' : '';
-		statusBarItem.text = `$(file-code) Batches: ${summary.batches} $(list-ordered) Entries: ${summary.entries} $(symbol-numeric) Net: ${netSign}$${summary.netAmount.toFixed(2)}`;
+		statusBarItem.text = `$(file-code) Batches: ${summary.batches} $(list-ordered) Entries: ${summary.entries} $(symbol-numeric) Credits: $${summary.totalCredit.toFixed(2)} Debits: $${summary.totalDebit.toFixed(2)}`;
 		statusBarItem.tooltip = `NACHA File Summary\n` +
 			`Batches: ${summary.batches}\n` +
 			`Entries: ${summary.entries}\n` +
 			`Credits: $${summary.totalCredit.toFixed(2)}\n` +
 			`Debits: $${summary.totalDebit.toFixed(2)}\n` +
-			`Net Amount: ${netSign}$${summary.netAmount.toFixed(2)}`;
+			`Net Amount: $${(summary.totalCredit - summary.totalDebit).toFixed(2)}`;
 		statusBarItem.show();
 	};
 
