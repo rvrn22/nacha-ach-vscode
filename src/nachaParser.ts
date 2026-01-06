@@ -6,6 +6,14 @@ export type AchDiagnostic = {
   severity: 0 | 1 | 2 | 3; // vscode.DiagnosticSeverity values
 };
 
+export type AchSummary = {
+  batches: number;
+  entries: number;
+  totalDebit: number;
+  totalCredit: number;
+  netAmount: number;
+};
+
 // Basic NACHA/ACH parser: validates line length and record ordering.
 // NACHA records are fixed width (94 chars) and begin with type codes:
 // 1: File Header, 5: Batch Header, 6: Entry Detail, 7: Addenda, 8: Batch Control, 9: File Control
@@ -14,6 +22,7 @@ export function parseAch(text: string): AchDiagnostic[] {
   const lines = text.split(/\r?\n/);
 
   const recordTypes = new Set(['1', '5', '6', '7', '8', '9']);
+  const isPaddingRow = (line: string) => line.length === 94 && /^9{94}$/.test(line);
 
   // Track simple structure expectations
   let seenFileHeader = false;
@@ -23,6 +32,11 @@ export function parseAch(text: string): AchDiagnostic[] {
     const line = lines[i];
     if (line.length === 0) {
       continue; // ignore blank trailing line
+    }
+
+    // Skip padding rows (blocking records)
+    if (isPaddingRow(line)) {
+      continue;
     }
 
     const firstChar = line.charAt(0);
@@ -183,14 +197,59 @@ export function parseAch(text: string): AchDiagnostic[] {
 
 function lastNonEmptyIndex(lines: string[]): number {
   for (let i = lines.length - 1; i >= 0; i--) {
-    if (lines[i].length > 0) return i;
+    if (lines[i].length > 0) {return i;}
   }
   return -1;
 }
 
 function hasNonEmptyAfter(lines: string[], index: number): boolean {
   for (let i = index + 1; i < lines.length; i++) {
-    if (lines[i].length > 0) return true;
+    if (lines[i].length > 0) {return true;}
   }
   return false;
+}
+
+export function parseAchSummary(text: string): AchSummary {
+  const lines = text.split(/\r?\n/);
+  let batches = 0;
+  let entries = 0;
+  let totalDebit = 0;
+  let totalCredit = 0;
+
+  for (const line of lines) {
+    if (line.length === 0) {
+      continue;
+    }
+    const type = line.charAt(0);
+    
+    if (type === '5') {
+      batches++;
+    } else if (type === '6') {
+      entries++;
+      // Transaction code at position 1-2 determines debit/credit
+      // Amount is at positions 29-39 (10 digits, in cents)
+      if (line.length >= 39) {
+        const transactionCode = line.substring(1, 3);
+        const amountStr = line.substring(29, 39);
+        const amount = parseInt(amountStr, 10) / 100; // Convert cents to dollars
+        
+        if (!isNaN(amount)) {
+          // Transaction codes: 22,32,52 are credits; 27,37,47 are debits
+          if (['22', '23', '24', '32', '33', '34', '52', '53', '54'].includes(transactionCode)) {
+            totalCredit += amount;
+          } else if (['27', '28', '29', '37', '38', '39', '47', '48', '49'].includes(transactionCode)) {
+            totalDebit += amount;
+          }
+        }
+      }
+    }
+  }
+
+  return {
+    batches,
+    entries,
+    totalDebit,
+    totalCredit,
+    netAmount: totalCredit - totalDebit
+  };
 }

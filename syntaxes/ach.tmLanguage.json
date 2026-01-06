@@ -13,7 +13,7 @@
       "patterns": [
         { "name": "constant.numeric.ach", "match": "[0-9]+" },
         { "name": "string.unquoted.ach", "match": "[A-Za-z&'(),./\\-]+" },
-        { "name": "punctuation.separator.ach", "match": "\s" }
+        { "name": "punctuation.separator.ach", "match": "\\s" }
       ]
     },
     {
@@ -23,7 +23,7 @@
       "patterns": [
         { "name": "constant.numeric.ach", "match": "[0-9]+" },
         { "name": "string.unquoted.ach", "match": "[A-Za-z&'(),./\\-]+" },
-        { "name": "punctuation.separator.ach", "match": "\s" }
+        { "name": "punctuation.separator.ach", "match": "\\s" }
       ]
     },
     {
@@ -33,7 +33,7 @@
       "patterns": [
         { "name": "constant.numeric.ach", "match": "[0-9]+" },
         { "name": "string.unquoted.ach", "match": "[A-Za-z&'(),./\\-]+" },
-        { "name": "punctuation.separator.ach", "match": "\s" }
+        { "name": "punctuation.separator.ach", "match": "\\s" }
       ]
     },
     {
@@ -43,7 +43,7 @@
       "patterns": [
         { "name": "constant.numeric.ach", "match": "[0-9]+" },
         { "name": "string.unquoted.ach", "match": "[A-Za-z&'(),./\\-]+" },
-        { "name": "punctuation.separator.ach", "match": "\s" }
+        { "name": "punctuation.separator.ach", "match": "\\s" }
       ]
     },
     {
@@ -53,7 +53,7 @@
       "patterns": [
         { "name": "constant.numeric.ach", "match": "[0-9]+" },
         { "name": "string.unquoted.ach", "match": "[A-Za-z&'(),./\\-]+" },
-        { "name": "punctuation.separator.ach", "match": "\s" }
+        { "name": "punctuation.separator.ach", "match": "\\s" }
       ]
     },
     {
@@ -63,7 +63,7 @@
       "patterns": [
         { "name": "constant.numeric.ach", "match": "[0-9]+" },
         { "name": "string.unquoted.ach", "match": "[A-Za-z&'(),./\\-]+" },
-        { "name": "punctuation.separator.ach", "match": "\s" }
+        { "name": "punctuation.separator.ach", "match": "\\s" }
       ]
     }
   ]
