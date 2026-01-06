@@ -325,7 +325,13 @@ const hoverProvider = vscode.languages.registerHoverProvider('ach', {
 			markdown.appendCodeblock(value, 'text');
 		}
 
-		return new vscode.Hover(markdown);
+		// Create range for the specific field to highlight only that field
+		const fieldRange = new vscode.Range(
+			new vscode.Position(position.line, field.start),
+			new vscode.Position(position.line, field.end)
+		);
+
+		return new vscode.Hover(markdown, fieldRange);
 	}
 });
 context.subscriptions.push(hoverProvider);
