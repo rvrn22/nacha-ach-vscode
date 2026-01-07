@@ -2,7 +2,7 @@
   "name": "nacha-file-parser",
   "displayName": "ACH Syntax Highlighter and Validator",
   "description": "Syntax highlighter and validator for NACHA ACH files",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "publisher": "RaviRanjan",
   "icon": "icon.png",
   "license": "MIT",
@@ -51,25 +51,53 @@
       "properties": {
         "nachaFileParser.recordTypeColors": {
           "type": "object",
-          "default": {
-            "1": "rgba(244,67,54,0.12)",
-            "5": "rgba(76,175,80,0.12)",
-            "6": "rgba(33,150,243,0.12)",
-            "7": "rgba(255,235,59,0.20)",
-            "8": "rgba(156,39,176,0.12)",
-            "9": "rgba(96,125,139,0.12)"
-          },
           "description": "Background colors for each ACH record type (1-9)",
-          "additionalProperties": {
-            "type": "string",
-            "format": "color"
+          "properties": {
+            "1": {
+              "type": "string",
+              "format": "color",
+              "description": "Color for File Header Record (Type 1)"
+            },
+            "5": {
+              "type": "string",
+              "format": "color",
+              "description": "Color for Batch Header Record (Type 5)"
+            },
+            "6": {
+              "type": "string",
+              "format": "color",
+              "description": "Color for Entry Detail Record (Type 6)"
+            },
+            "7": {
+              "type": "string",
+              "format": "color",
+              "description": "Color for Addenda Record (Type 7)"
+            },
+            "8": {
+              "type": "string",
+              "format": "color",
+              "description": "Color for Batch Control Record (Type 8)"
+            },
+            "9": {
+              "type": "string",
+              "format": "color",
+              "description": "Color for File Control Record (Type 9)"
+            }
+          },
+          "default": {
+            "1": "#f443361f",
+            "5": "#4caf501f",
+            "6": "#2196f31f",
+            "7": "#ffeb3b33",
+            "8": "#9c27b01f",
+            "9": "#607d8b1f"
           }
         },
         "nachaFileParser.batchRowColors": {
           "type": "array",
           "default": [
-            "rgba(247, 211, 161, 1)",
-            "rgba(249, 241, 215, 1)"
+            "#f7d3a1",
+            "#f9f1d7"
           ],
           "items": {
             "type": "string",
@@ -80,20 +108,20 @@
         "nachaFileParser.paddingRowColor": {
           "type": "string",
           "format": "color",
-          "default": "rgba(200,200,200,0.08)",
+          "default": "#c8c8c814",
           "description": "Background color for padding/filler records"
         },
         "nachaFileParser.batchSeparatorColor": {
           "type": "string",
           "format": "color",
-          "default": "rgba(100,100,100,0.4)",
+          "default": "#64646466",
           "description": "Border color for batch separator lines"
         },
         "nachaFileParser.fieldColors": {
           "type": "array",
           "default": [
-            "rgba(1, 87, 43, 1)",
-            "rgba(93, 4, 246, 1)"
+            "#01572b",
+            "#5d04f6"
           ],
           "items": {
             "type": "string",

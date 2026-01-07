@@ -33,12 +33,12 @@ export function activate(context: vscode.ExtensionContext) {
 	const config = vscode.workspace.getConfiguration('nachaFileParser');
 
 	const recordTypeColors = config.get<Record<string, string>>('recordTypeColors', {
-		'1': 'rgba(244,67,54,0.12)',
-		'5': 'rgba(76,175,80,0.12)',
-		'6': 'rgba(33,150,243,0.12)',
-		'7': 'rgba(255,235,59,0.20)',
-		'8': 'rgba(156,39,176,0.12)',
-		'9': 'rgba(96,125,139,0.12)'
+		'1': '#f443361f',
+		'5': '#4caf501f',
+		'6': '#2196f31f',
+		'7': '#ffeb3b33',
+		'8': '#9c27b01f',
+		'9': '#607d8b1f'
 	});
 	const recordDecorations: Record<string, vscode.TextEditorDecorationType> = {
 		'1': vscode.window.createTextEditorDecorationType({ isWholeLine: true, backgroundColor: recordTypeColors['1'] }),
@@ -52,8 +52,8 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Batch-based row highlighting (alternate colors per batch)
 	const batchRowPalette = config.get<string[]>('batchRowColors', [
-		'rgba(247, 211, 161, 1)',
-		'rgba(249, 241, 215, 1)'
+		'#f7d3a1',
+		'#f9f1d7'
 	]);
 	const batchRowDecorations: vscode.TextEditorDecorationType[] = batchRowPalette.map(color =>
 		vscode.window.createTextEditorDecorationType({
@@ -64,7 +64,7 @@ export function activate(context: vscode.ExtensionContext) {
 	batchRowDecorations.forEach(d => context.subscriptions.push(d));
 
 	// Padding row decoration (for blocking/filler records)
-	const paddingRowColor = config.get<string>('paddingRowColor', 'rgba(200,200,200,0.08)');
+	const paddingRowColor = config.get<string>('paddingRowColor', '#c8c8c814');
 	const paddingRowDecoration = vscode.window.createTextEditorDecorationType({
 		isWholeLine: true,
 		backgroundColor: paddingRowColor,
@@ -74,7 +74,7 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(paddingRowDecoration);
 
 	// Virtual spacing decoration (adds visual separation between batches)
-	const batchSeparatorColor = config.get<string>('batchSeparatorColor', 'rgba(100,100,100,0.4)');
+	const batchSeparatorColor = config.get<string>('batchSeparatorColor', '#64646466');
 	const batchSeparatorDecoration = vscode.window.createTextEditorDecorationType({
 		isWholeLine: true,
 		// backgroundColor: 'rgba(150,150,150,0.1)',
@@ -86,8 +86,8 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Field-level decorations (alternating colors for field boundaries)
 	const fieldDecorationPalette = config.get<string[]>('fieldColors', [
-		'rgba(1, 87, 43, 1)',
-		'rgba(93, 4, 246, 1)'
+		'#01572b',
+		'#5d04f6'
 	]);
 	const fieldDecorations: vscode.TextEditorDecorationType[] = fieldDecorationPalette.map(color =>
 		vscode.window.createTextEditorDecorationType({
