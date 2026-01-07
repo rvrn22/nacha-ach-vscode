@@ -4,6 +4,7 @@
   "description": "File parser and highlighter for Nacha ACH files",
   "version": "0.0.1",
   "publisher": "raviranjan",
+  "icon": "icon.png",
   "license": "MIT",
   "repository": {
     "type": "git",
