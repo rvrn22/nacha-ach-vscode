@@ -66,4 +66,41 @@ suite('Nacha Parser Validation Test Suite', () => {
         const totalErrors = diags.filter(d => d.message.includes('match') || d.message.includes('calculate'));
         assert.strictEqual(totalErrors.length, 0, `Expected no totals errors, found: ${JSON.stringify(totalErrors)}`);
     });
+
+    test('Should validate IAT records', () => {
+        const pad = (s: string, n: number) => s.padEnd(n, ' ');
+        const padNum = (s: string, n: number) => s.padStart(n, '0');
+
+        // File Header
+        const fileHeader = '101' + pad('Dest', 10) + pad('Origin', 10) + '231026' + '0900' + 'A' + '094' + '10' + '1' + pad('Dest Name', 23) + pad('Orig Name', 23) + pad('', 8);
+
+        // IAT Batch Header
+        // 5 + Service(3) + IAT Indicator(16) + FX Ind(2) + FX Ref Ind(1) + FX Ref(15) + Country(2) + ID(10) + SEC(3) + Desc(10) + Orig Curr(3) + Dest Curr(3) + Date(6) + Settle(3) + Status(1) + ODFI(8) + Batch(7)
+        const batchHeader = '5220' + 'IAT             ' + 'FF' + '3' + pad('', 15) + 'MX' + '1234567890' + 'IAT' + pad('PAYROLL', 10) + 'USD' + 'MXN' + '231026' + '   ' + '1' + '06100010' + '0000001';
+
+        // IAT Entry Detail
+        // 6 + Tx(2) + RDFI(8) + CD(1) + Res(3) + Addenda(2) + Res(12) + Amount(10) + Account(35) + Res(2) + Screen(2) + Addenda Ind(1) + Trace(15)
+        const entry = '622' + '06100010' + '4' + '   ' + '07' + pad('', 12) + padNum('5000', 10) + pad('FOREIGN-ACCOUNT-123', 35) + '  ' + '  ' + '1' + '061000100000001';
+
+        // 7 mandatory IAT addenda (Types 10-16)
+        const addenda10 = '710' + 'BUS' + padNum('5000', 18) + 'FF' + pad('RECEIVER NAME', 35) + pad('', 18) + '061000100000001';
+        const addenda11 = '711' + pad('ORIGINATOR NAME', 35) + pad('123 MAIN ST', 35) + pad('', 6) + '061000100000001';
+        const addenda12 = '712' + pad('ORIGINATOR CITY', 35) + pad('CAUS90210', 35) + pad('', 6) + '061000100000001';
+        const addenda13 = '713' + pad('ODFI NAME', 35) + pad('12345678US', 35) + pad('', 6) + '061000100000001';
+        const addenda14 = '714' + pad('RDFI NAME', 35) + pad('87654321MX', 35) + pad('', 6) + '061000100000001';
+        const addenda15 = '715' + pad('RECEIVER ID', 35) + pad('456 OAK AVE', 35) + pad('', 6) + '061000100000001';
+        const addenda16 = '716' + pad('RECEIVER CITY', 35) + pad('MEXICO CITY MX 12345', 35) + pad('', 6) + '061000100000001';
+
+        // Batch Control (Count: 1 entry + 7 addenda = 8)
+        const batchControl = '8220' + padNum('8', 6) + padNum('6100010', 10) + padNum('0', 12) + padNum('5000', 12) + '1234567890' + pad('', 19) + pad('', 6) + '06100010' + '0000001';
+
+        // File Control
+        const fileControl = '9' + padNum('1', 6) + padNum('2', 6) + padNum('8', 8) + padNum('6100010', 10) + padNum('0', 12) + padNum('5000', 12) + pad('', 39);
+
+        const fullFile = [fileHeader, batchHeader, entry, addenda10, addenda11, addenda12, addenda13, addenda14, addenda15, addenda16, batchControl, fileControl].join('\n');
+
+        const diags = parseAch(fullFile);
+        const totalErrors = diags.filter(d => d.message.includes('match') || d.message.includes('calculate') || d.message.includes('IAT'));
+        assert.strictEqual(totalErrors.length, 0, `Expected no IAT related errors, found: ${JSON.stringify(totalErrors)}`);
+    });
 });

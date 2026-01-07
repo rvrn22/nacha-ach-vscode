@@ -43,6 +43,7 @@ export function parseAch(text: string): AchDiagnostic[] {
   let currentBatchId = '';
   let currentBatchOdfi = '';
   let currentBatchNumber = '';
+  let currentBatchSec = '';
 
   const addDiag = (lineIdx: number, start: number, end: number, message: string, severity: 0 | 1 | 2 | 3 = 1) => {
     diags.push({ line: lineIdx, start, end, message, severity });
@@ -51,7 +52,7 @@ export function parseAch(text: string): AchDiagnostic[] {
   const isNumeric = (str: string) => /^\d+$/.test(str);
 
   const validateRouting = (routing: string): boolean => {
-    if (routing.length !== 8 || !isNumeric(routing)) {return false;}
+    if (routing.length !== 8 || !isNumeric(routing)) { return false; }
     return true;
   };
 
@@ -108,7 +109,7 @@ export function parseAch(text: string): AchDiagnostic[] {
         if (priorityCode !== '01') {
           addDiag(i, 1, 3, `Priority Code should be '01', found '${priorityCode}'`, 2);
         }
-        
+
         const immDest = getField(3, 13);
         if (immDest.trim().length === 0) {
           addDiag(i, 3, 13, 'Immediate Destination is required', 1);
@@ -159,16 +160,25 @@ export function parseAch(text: string): AchDiagnostic[] {
         currentBatchDebitAmount = 0;
         currentBatchCreditAmount = 0;
         currentBatchEntryHash = 0n;
-        
+
         currentBatchServiceClass = getField(1, 4);
         currentBatchId = getField(40, 50);
         currentBatchOdfi = getField(79, 87);
         currentBatchNumber = getField(87, 94);
+        currentBatchSec = getField(50, 53).trim();
 
-        if (!['200', '220', '225', '280'].includes(currentBatchServiceClass)) {
-          addDiag(i, 1, 4, 'Invalid Service Class Code. Expected 200, 220, 225, or 280', 1);
+        const validServiceClasses = currentBatchSec === 'IAT' ? ['200', '220', '225'] : ['200', '220', '225', '280'];
+        if (!validServiceClasses.includes(currentBatchServiceClass)) {
+          addDiag(i, 1, 4, `Invalid Service Class Code for ${currentBatchSec}. Expected ${validServiceClasses.join(', ')}`, 1);
         }
-        
+
+        if (currentBatchSec === 'IAT') {
+          const iatIndicator = getField(4, 7);
+          if (iatIndicator !== 'IAT') {
+            addDiag(i, 4, 7, 'IAT batches must have "IAT" in positions 5-7', 1);
+          }
+        }
+
         const effectiveDate = getField(69, 75);
         if (!/^\d{6}$/.test(effectiveDate)) {
           addDiag(i, 69, 75, 'Effective Entry Date must be YYMMDD format', 1);
@@ -189,7 +199,7 @@ export function parseAch(text: string): AchDiagnostic[] {
         const txCode = getField(1, 3);
         const lastDigit = parseInt(txCode.charAt(1), 10);
         const amount = parseInt(getField(29, 39), 10);
-        
+
         if (isNaN(amount)) {
           addDiag(i, 29, 39, 'Amount must be numeric', 1);
         } else {
@@ -208,7 +218,7 @@ export function parseAch(text: string): AchDiagnostic[] {
         } else {
           currentBatchEntryHash += BigInt(rdfi);
           totalEntryHash += BigInt(rdfi);
-          
+
           const checkDigit = parseInt(getField(11, 12), 10);
           const expectedCheckDigit = calculateCheckDigit(rdfi);
           if (checkDigit !== expectedCheckDigit) {
@@ -216,9 +226,21 @@ export function parseAch(text: string): AchDiagnostic[] {
           }
         }
 
-        const addendaIndicator = getField(78, 79);
-        if (addendaIndicator !== '0' && addendaIndicator !== '1') {
-          addDiag(i, 78, 79, 'Addenda Record Indicator must be 0 or 1', 1);
+        if (currentBatchSec === 'IAT') {
+          const addendaIndicator = getField(78, 79);
+          if (addendaIndicator !== '1') {
+            addDiag(i, 78, 79, 'Addenda Record Indicator must be 1 for IAT entries', 1);
+          }
+          const numAddendaStr = getField(15, 17);
+          const numAddenda = parseInt(numAddendaStr, 10);
+          if (isNaN(numAddenda) || numAddenda < 7) {
+            addDiag(i, 15, 17, `IAT entries must have at least 07 addenda records (found ${numAddendaStr})`, 1);
+          }
+        } else {
+          const addendaIndicator = getField(78, 79);
+          if (addendaIndicator !== '0' && addendaIndicator !== '1') {
+            addDiag(i, 78, 79, 'Addenda Record Indicator must be 0 or 1', 1);
+          }
         }
         break;
 
@@ -350,14 +372,14 @@ export function parseAch(text: string): AchDiagnostic[] {
 
 function lastNonEmptyIndex(lines: string[]): number {
   for (let i = lines.length - 1; i >= 0; i--) {
-    if (lines[i].trim().length > 0) {return i;}
+    if (lines[i].trim().length > 0) { return i; }
   }
   return -1;
 }
 
 function hasNonEmptyAfter(lines: string[], index: number): boolean {
   for (let i = index + 1; i < lines.length; i++) {
-    if (lines[i].trim().length > 0) {return true;}
+    if (lines[i].trim().length > 0) { return true; }
   }
   return false;
 }
@@ -375,23 +397,23 @@ export function parseAchSummary(text: string): AchSummary {
       continue;
     }
     const type = line.charAt(0);
-    
+
     if (type === '5') {
       batches++;
     } else if (type === '6') {
       entries++;
-      
+
       if (line.length >= 39) {
         const transactionCode = line.substring(1, 3);
         const amountStr = line.substring(29, 39);
         const amount = parseInt(amountStr, 10) / 100; // Convert cents to dollars
-        
+
         if (!isNaN(amount) && amount > 0) {
           // ACH Transaction codes:
           // X0-X4 = Credits (20-24, 30-34, 40-44, 50-54)
           // X5-X9 = Debits (25-29, 35-39, 45-49, 55-59)
           const lastDigit = parseInt(transactionCode.charAt(1), 10);
-          
+
           if (lastDigit >= 0 && lastDigit <= 4) {
             totalCredit += amount;
           } else if (lastDigit >= 5 && lastDigit <= 9) {
