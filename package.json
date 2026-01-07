@@ -23,8 +23,13 @@
     "languages": [
       {
         "id": "ach",
-        "aliases": ["ACH", "NACHA"],
-        "extensions": [".ach"]
+        "aliases": [
+          "ACH",
+          "NACHA"
+        ],
+        "extensions": [
+          ".ach"
+        ]
       }
     ],
     "grammars": [
@@ -39,7 +44,64 @@
         "command": "nacha-file-parser.helloWorld",
         "title": "Hello World"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Nacha File Parser",
+      "properties": {
+        "nachaFileParser.recordTypeColors": {
+          "type": "object",
+          "default": {
+            "1": "rgba(244,67,54,0.12)",
+            "5": "rgba(76,175,80,0.12)",
+            "6": "rgba(33,150,243,0.12)",
+            "7": "rgba(255,235,59,0.20)",
+            "8": "rgba(156,39,176,0.12)",
+            "9": "rgba(96,125,139,0.12)"
+          },
+          "description": "Background colors for each ACH record type (1-9)",
+          "additionalProperties": {
+            "type": "string",
+            "format": "color"
+          }
+        },
+        "nachaFileParser.batchRowColors": {
+          "type": "array",
+          "default": [
+            "rgba(247, 211, 161, 1)",
+            "rgba(249, 241, 215, 1)"
+          ],
+          "items": {
+            "type": "string",
+            "format": "color"
+          },
+          "description": "Alternating background colors for batch row highlighting"
+        },
+        "nachaFileParser.paddingRowColor": {
+          "type": "string",
+          "format": "color",
+          "default": "rgba(200,200,200,0.08)",
+          "description": "Background color for padding/filler records"
+        },
+        "nachaFileParser.batchSeparatorColor": {
+          "type": "string",
+          "format": "color",
+          "default": "rgba(100,100,100,0.4)",
+          "description": "Border color for batch separator lines"
+        },
+        "nachaFileParser.fieldColors": {
+          "type": "array",
+          "default": [
+            "rgba(1, 87, 43, 1)",
+            "rgba(93, 4, 246, 1)"
+          ],
+          "items": {
+            "type": "string",
+            "format": "color"
+          },
+          "description": "Alternating text colors for field-level highlighting"
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
@@ -53,16 +115,17 @@
     "test": "vscode-test"
   },
   "devDependencies": {
-    "@types/vscode": "^1.107.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
-    "typescript-eslint": "^8.48.1",
-    "eslint": "^9.39.1",
-    "typescript": "^5.9.3",
-    "ts-loader": "^9.5.4",
-    "webpack": "^5.103.0",
-    "webpack-cli": "^6.0.1",
+    "@types/vscode": "^1.107.0",
     "@vscode/test-cli": "^0.0.12",
-    "@vscode/test-electron": "^2.5.2"
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.7.1",
+    "eslint": "^9.39.1",
+    "ts-loader": "^9.5.4",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.48.1",
+    "webpack": "^5.103.0",
+    "webpack-cli": "^6.0.1"
   }
 }
