@@ -1,8 +1,8 @@
 {
   "name": "nacha-file-parser",
-  "displayName": "Nacha File Parser",
-  "description": "File parser and highlighter for Nacha ACH files",
-  "version": "0.0.2",
+  "displayName": "ACH Syntax Highlighter and Validator",
+  "description": "Syntax highlighter and validator for NACHA ACH files",
+  "version": "0.0.3",
   "publisher": "RaviRanjan",
   "icon": "icon.png",
   "license": "MIT",
