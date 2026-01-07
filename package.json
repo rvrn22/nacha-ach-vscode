@@ -2,13 +2,13 @@
   "name": "nacha-file-parser",
   "displayName": "Nacha File Parser",
   "description": "File parser and highlighter for Nacha ACH files",
-  "version": "0.0.1",
-  "publisher": "raviranjan",
+  "version": "0.0.2",
+  "publisher": "RaviRanjan",
   "icon": "icon.png",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-username/nacha-file-parser.git"
+    "url": "https://github.com/rvrn22/nacha-file-parser.git"
   },
   "engines": {
     "vscode": "^1.107.0"
