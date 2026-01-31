@@ -2,7 +2,7 @@
   "name": "nacha-file-parser",
   "displayName": "ACH Syntax Highlighter and Validator",
   "description": "Syntax highlighter and validator for NACHA ACH files",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "publisher": "RaviRanjan",
   "icon": "icon.png",
   "license": "MIT",

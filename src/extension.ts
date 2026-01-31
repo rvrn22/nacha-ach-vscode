@@ -30,59 +30,112 @@ export function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(disposable);
 
-	const recordDecorations: Record<string, vscode.TextEditorDecorationType> = {
-		'1': vscode.window.createTextEditorDecorationType({ isWholeLine: true, backgroundColor: 'rgba(244,67,54,0.12)' }),
-		'5': vscode.window.createTextEditorDecorationType({ isWholeLine: true, backgroundColor: 'rgba(76,175,80,0.12)' }),
-		'6': vscode.window.createTextEditorDecorationType({ isWholeLine: true, backgroundColor: 'rgba(33,150,243,0.12)' }),
-		'7': vscode.window.createTextEditorDecorationType({ isWholeLine: true, backgroundColor: 'rgba(255,235,59,0.20)' }),
-		'8': vscode.window.createTextEditorDecorationType({ isWholeLine: true, backgroundColor: 'rgba(156,39,176,0.12)' }),
-		'9': vscode.window.createTextEditorDecorationType({ isWholeLine: true, backgroundColor: 'rgba(96,125,139,0.12)' })
+
+	// Decorations are created dynamically so they can adapt to light/dark themes.
+	let recordDecorations: Record<string, vscode.TextEditorDecorationType> = {} as Record<string, vscode.TextEditorDecorationType>;
+	let batchRowDecorations: vscode.TextEditorDecorationType[] = [];
+	let paddingRowDecoration: vscode.TextEditorDecorationType | undefined;
+	let batchSeparatorDecoration: vscode.TextEditorDecorationType | undefined;
+	let fieldDecorations: vscode.TextEditorDecorationType[] = [];
+
+	const disposeDecorations = () => {
+		Object.values(recordDecorations).forEach(d => d && d.dispose());
+		batchRowDecorations.forEach(d => d && d.dispose());
+		fieldDecorations.forEach(d => d && d.dispose());
+		if (paddingRowDecoration) { paddingRowDecoration.dispose(); }
+		if (batchSeparatorDecoration) { batchSeparatorDecoration.dispose(); }
+		recordDecorations = {} as Record<string, vscode.TextEditorDecorationType>;
+		batchRowDecorations = [];
+		fieldDecorations = [];
+		paddingRowDecoration = undefined;
+		batchSeparatorDecoration = undefined;
 	};
-	Object.values(recordDecorations).forEach(d => context.subscriptions.push(d));
 
-	// Batch-based row highlighting (alternate colors per batch)
-	const batchRowPalette = [
-		'rgba(247, 211, 161, 1)',
-		'rgba(249, 241, 215, 1)'
-	];
-	const batchRowDecorations: vscode.TextEditorDecorationType[] = batchRowPalette.map(color =>
-		vscode.window.createTextEditorDecorationType({
-			isWholeLine: true,
-			backgroundColor: color,
-		})
-	);
-	batchRowDecorations.forEach(d => context.subscriptions.push(d));
+	const createDecorationsForTheme = (themeKind: vscode.ColorThemeKind) => {
+		// Choose palettes tuned for light vs dark themes
+		const isDark = themeKind === vscode.ColorThemeKind.Dark || themeKind === vscode.ColorThemeKind.HighContrast;
 
-	// Padding row decoration (for blocking/filler records)
-	const paddingRowDecoration = vscode.window.createTextEditorDecorationType({
-		isWholeLine: true,
-		backgroundColor: 'rgba(200,200,200,0.08)',
-		fontStyle: 'italic',
-		opacity: '0.6'
+		const recordPalette: Record<'1'|'5'|'6'|'7'|'8'|'9', string> = isDark ? {
+			'1': 'rgba(244,67,54,0.28)',
+			'5': 'rgba(76,175,80,0.28)',
+			'6': 'rgba(33,150,243,0.28)',
+			'7': 'rgba(255,235,59,0.20)',
+			'8': 'rgba(156,39,176,0.28)',
+			'9': 'rgba(128,138,143,0.14)'
+		} : {
+			'1': 'rgba(244,67,54,0.12)',
+			'5': 'rgba(76,175,80,0.12)',
+			'6': 'rgba(33,150,243,0.12)',
+			'7': 'rgba(255,235,59,0.16)',
+			'8': 'rgba(156,39,176,0.12)',
+			'9': 'rgba(96,125,139,0.08)'
+		};
+
+		const batchRowPalette = isDark ? [
+			'rgba(70,44,25,0.20)',
+			'rgba(48,50,54,0.16)'
+		] : [
+			'rgba(247,211,161,0.14)',
+			'rgba(249,241,215,0.12)'
+		];
+
+		const fieldPalette = isDark ? [
+			'rgba(102,187,106,1)',
+			'rgba(149,117,205,1)'
+		] : [
+			'rgba(1,87,43,1)',
+			'rgba(93,4,246,1)'
+		];
+
+		// Dispose any previous decorations
+		disposeDecorations();
+
+		// Create record decorations
+		const recordKeys = ['1','5','6','7','8','9'] as const;
+		for (const k of recordKeys) {
+			recordDecorations[k] = vscode.window.createTextEditorDecorationType({ isWholeLine: true, backgroundColor: recordPalette[k] });
+			context.subscriptions.push(recordDecorations[k]);
+		}
+
+		// Batch row decorations with left accent border to visually group batches
+		const borderFromBg = (bg: string, alpha = 0.45) => {
+			const m = bg.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([0-9.]+)\)/);
+			if (!m) { return bg; }
+			return `rgba(${m[1]}, ${m[2]}, ${m[3]}, ${alpha})`;
+		};
+		batchRowDecorations = batchRowPalette.map(color => {
+			const borderColor = borderFromBg(color, isDark ? 0.6 : 0.44);
+			return vscode.window.createTextEditorDecorationType({
+				isWholeLine: true,
+				backgroundColor: color,
+				borderWidth: '0 0 0 4px',
+				borderStyle: 'solid',
+				borderColor,
+			});
+		});
+		batchRowDecorations.forEach(d => context.subscriptions.push(d));
+
+		// Padding row
+		paddingRowDecoration = vscode.window.createTextEditorDecorationType({ isWholeLine: true, backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(200,200,200,0.06)', fontStyle: 'italic', opacity: '0.7' });
+		context.subscriptions.push(paddingRowDecoration);
+
+		// Batch separator
+		batchSeparatorDecoration = vscode.window.createTextEditorDecorationType({ isWholeLine: true, borderWidth: '0 0 1px 0', borderStyle: 'solid', borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(100,100,100,0.22)' });
+		context.subscriptions.push(batchSeparatorDecoration);
+
+		// Field decorations
+		fieldDecorations = fieldPalette.map(color => vscode.window.createTextEditorDecorationType({ color }));
+		fieldDecorations.forEach(d => context.subscriptions.push(d));
+	};
+
+	// Initialize decorations for current theme
+	createDecorationsForTheme(vscode.window.activeColorTheme.kind);
+
+	// Recreate decorations when theme changes so colors adapt to light/dark
+	vscode.window.onDidChangeActiveColorTheme(e => {
+		createDecorationsForTheme(e.kind);
+		updateForEditor();
 	});
-	context.subscriptions.push(paddingRowDecoration);
-
-	// Virtual spacing decoration (adds visual separation between batches)
-	const batchSeparatorDecoration = vscode.window.createTextEditorDecorationType({
-		isWholeLine: true,
-		// backgroundColor: 'rgba(150,150,150,0.1)',
-		borderWidth: '0 0 1px 0',
-		borderStyle: 'solid',
-		borderColor: 'rgba(100,100,100,0.4)'
-	});
-	context.subscriptions.push(batchSeparatorDecoration);
-
-	// Field-level decorations (alternating colors for field boundaries)
-	const fieldDecorationPalette = [
-		'rgba(1, 87, 43, 1)',
-		'rgba(93, 4, 246, 1)'
-	];
-	const fieldDecorations: vscode.TextEditorDecorationType[] = fieldDecorationPalette.map(color =>
-		vscode.window.createTextEditorDecorationType({
-			color: color,
-		})
-	);
-	fieldDecorations.forEach(d => context.subscriptions.push(d));
 
 	const runOnAch = (doc: vscode.TextDocument) => {
 		if (doc.languageId !== 'ach') {
@@ -214,8 +267,8 @@ export function activate(context: vscode.ExtensionContext) {
 		for (let idx = 0; idx < batchRowDecorations.length; idx++) {
 			editor.setDecorations(batchRowDecorations[idx], perDecorationRanges[idx]);
 		}
-		editor.setDecorations(paddingRowDecoration, paddingRanges);
-		editor.setDecorations(batchSeparatorDecoration, separatorRanges);
+		editor.setDecorations(paddingRowDecoration!, paddingRanges);
+		editor.setDecorations(batchSeparatorDecoration!, separatorRanges);
 	};
 
 	const applyFieldDecorations = (editor: vscode.TextEditor) => {
@@ -288,8 +341,8 @@ export function activate(context: vscode.ExtensionContext) {
 				for (const d of batchRowDecorations) {
 					ed.setDecorations(d, []);
 				}
-				ed.setDecorations(paddingRowDecoration, []);
-				ed.setDecorations(batchSeparatorDecoration, []);
+				ed.setDecorations(paddingRowDecoration!, []);
+				ed.setDecorations(batchSeparatorDecoration!, []);
 				for (const d of fieldDecorations) {
 					ed.setDecorations(d, []);
 				}
