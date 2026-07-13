@@ -62,6 +62,7 @@ export function createAchJsonReport(input: AchReportInput) {
       requireBlocking: input.profile.requireBlocking,
       validateSecCompatibility: input.profile.validateSecCompatibility,
       validateAsciiCharacters: input.profile.validateAsciiCharacters,
+      requireNetZero: input.profile.requireNetZero,
       ruleOverrides: input.profile.ruleOverrides,
     },
     file: {
@@ -75,6 +76,9 @@ export function createAchJsonReport(input: AchReportInput) {
       prenoteEntries: input.summary.prenoteEntries,
       batchesWithZeroDollarEntries: input.summary.batchesWithZeroDollarEntries,
       zeroDollarEntries: input.summary.zeroDollarEntries,
+      netPosition: input.summary.netPosition,
+      netAmountCents: input.summary.netAmountCents.toString(),
+      netPositionAmountCents: input.summary.netPositionAmountCents.toString(),
     },
     result: {
       valid: input.diagnostics.every(diagnostic => diagnostic.severity !== 0),

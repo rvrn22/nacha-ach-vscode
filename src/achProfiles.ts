@@ -1,5 +1,6 @@
 import {
   ACH_RULESET_VERSION,
+  balancedValidationProfile,
   nachaValidationProfile,
   unblockedValidationProfile,
   type AchRuleOverride,
@@ -8,11 +9,12 @@ import {
 } from './achTypes';
 
 export type AchCustomProfileDefinition = {
-  extends?: 'nacha' | 'unblocked';
+  extends?: 'nacha' | 'unblocked' | 'balanced';
   displayName?: string;
   requireBlocking?: boolean;
   validateSecCompatibility?: boolean;
   validateAsciiCharacters?: boolean;
+  requireNetZero?: boolean;
   ruleOverrides?: Record<string, AchRuleOverride | AchRuleSeverityName>;
 };
 
@@ -46,6 +48,7 @@ export function normalizeRuleOverrides(
 }
 
 function baseProfile(id: string): AchValidationProfile {
+  if (id === 'balanced' || id === balancedValidationProfile.id) { return balancedValidationProfile; }
   return id === 'unblocked' || id === unblockedValidationProfile.id
     ? unblockedValidationProfile
     : nachaValidationProfile;
@@ -73,6 +76,7 @@ export function resolveAchValidationProfile(
     requireBlocking: definition.requireBlocking ?? base.requireBlocking,
     validateSecCompatibility: definition.validateSecCompatibility ?? base.validateSecCompatibility,
     validateAsciiCharacters: definition.validateAsciiCharacters ?? base.validateAsciiCharacters,
+    requireNetZero: definition.requireNetZero ?? base.requireNetZero,
     rulesVersion: ACH_RULESET_VERSION,
     ruleOverrides: { ...base.ruleOverrides, ...customOverrides, ...configuredOverrides },
   };
@@ -84,6 +88,7 @@ export function validationProfileSignature(profile: AchValidationProfile): strin
     requireBlocking: profile.requireBlocking,
     validateSecCompatibility: profile.validateSecCompatibility,
     validateAsciiCharacters: profile.validateAsciiCharacters,
+    requireNetZero: profile.requireNetZero,
     rulesVersion: profile.rulesVersion,
     ruleOverrides: profile.ruleOverrides,
   });

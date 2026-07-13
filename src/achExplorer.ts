@@ -145,7 +145,10 @@ export class AchExplorerProvider implements vscode.TreeDataProvider<AchExplorerN
     const reversalText = summary.reversalBatches > 0 ? ` · ${summary.reversalEntries} reversal entries` : '';
     const prenoteText = summary.prenoteEntries > 0 ? ` · ${summary.prenoteEntries} prenotes` : '';
     const zeroDollarText = summary.zeroDollarEntries > 0 ? ` · ${summary.zeroDollarEntries} zero-dollar` : '';
-    const summaryText = `${summary.batches} batches · ${summary.entries} entries${reversalText}${prenoteText}${zeroDollarText} · $${formatAchCents(summary.totalCreditCents)} CR · $${formatAchCents(summary.totalDebitCents)} DR`;
+    const netText = summary.netPosition === 'zero'
+      ? 'net zero'
+      : `$${formatAchCents(summary.netPositionAmountCents)} net ${summary.netPosition}`;
+    const summaryText = `${summary.batches} batches · ${summary.entries} entries${reversalText}${prenoteText}${zeroDollarText} · $${formatAchCents(summary.totalCreditCents)} CR · $${formatAchCents(summary.totalDebitCents)} DR · ${netText}`;
     addDiagnosticBadge(fileNode, diagnostics, summaryText);
 
     for (const header of document.fileHeaders) {

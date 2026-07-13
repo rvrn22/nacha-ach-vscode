@@ -10,7 +10,7 @@ export type {
   AchRuleSeverityName,
   AchValidationProfile,
 } from './achTypes';
-export { ACH_RULESET_VERSION, nachaValidationProfile, unblockedValidationProfile } from './achTypes';
+export { ACH_RULESET_VERSION, balancedValidationProfile, nachaValidationProfile, unblockedValidationProfile } from './achTypes';
 export { resolveAchValidationProfile, validationProfileSignature } from './achProfiles';
 export { validateAch, validateAch as parseAch } from './achValidator';
 
@@ -26,6 +26,8 @@ export type AchSummary = {
   totalDebitCents: bigint;
   totalCreditCents: bigint;
   netAmountCents: bigint;
+  netPosition: 'zero' | 'credit' | 'debit';
+  netPositionAmountCents: bigint;
 };
 
 export function parseAchSummary(input: string | AchDocument): AchSummary {
@@ -51,6 +53,7 @@ export function parseAchSummary(input: string | AchDocument): AchSummary {
     }
   }
 
+  const netAmountCents = totalCreditCents - totalDebitCents;
   return {
     batches: document.batches.length,
     entries,
@@ -69,7 +72,9 @@ export function parseAchSummary(input: string | AchDocument): AchSummary {
     ),
     totalDebitCents,
     totalCreditCents,
-    netAmountCents: totalCreditCents - totalDebitCents,
+    netAmountCents,
+    netPosition: netAmountCents === 0n ? 'zero' : netAmountCents > 0n ? 'credit' : 'debit',
+    netPositionAmountCents: netAmountCents < 0n ? -netAmountCents : netAmountCents,
   };
 }
 

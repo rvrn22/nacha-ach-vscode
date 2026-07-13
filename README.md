@@ -11,7 +11,7 @@ A professional Visual Studio Code extension for developers and treasury professi
 - **Aggregate Totals**: Verifies Batch Controls (Type 8) and File Controls (Type 9) against actual entry counts, debit/credit sums, and entry hashes.
 - **Record Integrity**: Checks for correct record lengths (94 characters), mandatory fields, and proper record ordering (Header -> Batch -> Entry -> Control).
 - **Rule-Based Diagnostics**: Reports stable rule codes, expected and actual values, and related header/control locations across physical, structural, field, relational, and SEC-specific validation.
-- **Validation Profiles**: Supports strict 10-record blocking or an institution-compatible unblocked-file profile.
+- **Validation Profiles**: Supports strict blocking, institution-compatible unblocked files, and an opt-in net-zero balanced-file profile.
 
 ### 🌐 Full IAT Support
 - **International Transactions**: Comprehensive support for International ACH Transactions (IAT).
@@ -47,6 +47,13 @@ A professional Visual Studio Code extension for developers and treasury professi
 - **ACK/ATX Compatibility**: Restricts acknowledgment batches to transaction codes 24 or 34 and displays acknowledgment-specific descriptions.
 - **Visible Counts**: Shows zero-dollar entries in the decoded explorer, file summary, and redacted JSON report.
 
+### ⚖️ Net Position and Balanced-File Profiles
+- **Exact Net Position**: Classifies each file as net zero, net credit, or net debit using exact `bigint` cents.
+- **Default Flexibility**: Standard validation accepts both balanced and unbalanced origination workflows.
+- **Opt-In Enforcement**: The built-in `balanced` profile, or `requireNetZero` in a custom profile, requires calculated debits and credits to net to zero.
+- **Visible Funding Context**: Displays the signed net amount in summaries, the decoded explorer, and redacted JSON reports.
+- **Honest Offset Boundary**: Net-zero arithmetic is not presented as proof that a specific entry is an offset; identifying the settlement account remains institution-specific.
+
 ### 🎨 Visual Intelligence
 - **Alternating Field Highlighting**: Provides visual cues for field boundaries with alternating colors to make fixed-width files readable.
 - **Interactive Hovers**: Hover over any position to see the field name, description, start/end positions, and the raw value.
@@ -78,7 +85,7 @@ A professional Visual Studio Code extension for developers and treasury professi
 ### 📋 Profiles, Reports, and Automation
 - **Named Profiles**: Define institution/operator profiles that extend strict or unblocked validation behavior.
 - **Explained Overrides**: Change or suppress exact rules, categories, or all rules only with a recorded reason.
-- **Versioned Rules**: Reports identify ruleset version `2026.07.5` independently from the extension version.
+- **Versioned Rules**: Reports identify ruleset version `2026.07.6` independently from the extension version.
 - **Redacted Reports**: Export JSON or SARIF without exposing account numbers and individual identifiers.
 - **Headless CLI**: Run the same parser and validator in CI, scripts, and pre-upload workflows.
 - **Text Detection**: High-confidence ACH content in `.txt` files can switch to ACH language mode with one click.
@@ -113,6 +120,7 @@ Simply open any file with the `.ach` extension. The extension activates automati
 ach-validate payments.ach
 ach-validate --format sarif payments.ach > ach-results.sarif
 ach-validate --fail-on warning payments.ach
+ach-validate --profile balanced payments.ach
 ach-validate --rule 'ACH-PHYSICAL-PADDING-COUNT=off:Processor accepts unblocked files' payments.ach
 ```
 
@@ -142,8 +150,8 @@ The CLI exits `1` when the configured threshold is reached, `2` for usage/read f
 
 This extension contributes the following settings:
 
-* `nachaFileParser.validationProfile`: Select the built-in `nacha`/`unblocked` profile or a custom named profile.
-* `nachaFileParser.validationProfiles`: Define named institution/operator profiles.
+* `nachaFileParser.validationProfile`: Select the built-in `nacha`, `unblocked`, or `balanced` profile or a custom named profile.
+* `nachaFileParser.validationProfiles`: Define named institution/operator profiles, including optional `requireNetZero` arithmetic enforcement.
 * `nachaFileParser.ruleOverrides`: Override exact rules, categories, or all rules with a severity and explanation.
 * `nachaFileParser.rowColoring`: Color complete batches or individual record types.
 * `nachaFileParser.recordTypeColors`: Customize background colors for each record type (1-9).

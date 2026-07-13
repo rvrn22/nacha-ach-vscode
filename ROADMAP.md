@@ -153,6 +153,18 @@ Status: Completed
 - [x] Validate ACK/ATX transaction-code compatibility and contextual descriptions.
 - [x] Add valid, invalid, IAT, ACK, explorer, and report regression coverage.
 
+## Post-roadmap — Net position and balanced-file profiles
+
+Status: Completed
+
+- [x] Classify exact net-zero, net-credit, and net-debit positions with `bigint` cents.
+- [x] Accept both balanced and unbalanced workflows under the default profile.
+- [x] Add an opt-in built-in `balanced` profile and custom `requireNetZero` setting.
+- [x] Report net position and signed cents through summaries, explorer, and JSON.
+- [x] Emit related batch-total locations for net-zero profile failures.
+- [x] Avoid claiming that arithmetic equality identifies a settlement offset entry.
+- [x] Add net position, profile, explorer, and report regression coverage.
+
 ## Test strategy
 
 - [ ] Golden valid/invalid fixtures for every supported SEC code.
@@ -161,6 +173,7 @@ Status: Completed
   - [x] Reversals.
   - [x] Prenotes.
   - [x] Zero-dollar entries.
+  - [x] Balanced/unbalanced file analysis.
 - [ ] IAT addenda presence, order, count, and trace relationships.
 - [ ] CRLF/LF, tabs, non-ASCII characters, short/long records, and padding edge cases.
 - [ ] Property-style mutations of counts, hashes, totals, routing digits, and record order.

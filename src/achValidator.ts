@@ -843,6 +843,30 @@ function validateFileControl(document: AchDocument, batchTotals: BatchTotals[], 
   }
 }
 
+function validateNetPosition(document: AchDocument, batchTotals: BatchTotals[], context: ValidationContext): void {
+  if (!context.profile.requireNetZero || !batchTotals.every(totals => totals.amountsValid)) { return; }
+  const debit = batchTotals.reduce((sum, totals) => sum + totals.debit, 0n);
+  const credit = batchTotals.reduce((sum, totals) => sum + totals.credit, 0n);
+  if (debit === credit) { return; }
+  const target = document.fileControls[0] ?? document.records.at(-1);
+  const fileControl = target?.kind === 'fileControl';
+  context.add(
+    target,
+    fileControl ? 31 : 0,
+    fileControl ? 55 : target?.raw.length ?? 0,
+    'ACH-PROFILE-NET-ZERO',
+    'relational',
+    `${context.profile.displayName} requires total debits and credits to net to zero`,
+    {
+      expected: '0 cents',
+      actual: `${credit - debit} cents`,
+      related: document.batches
+        .filter(batch => batch.control)
+        .map(batch => related(batch.control!, 20, 44, 'Batch debit and credit totals')),
+    },
+  );
+}
+
 function validateFieldsAndRelationships(document: AchDocument, context: ValidationContext): void {
   for (const header of document.fileHeaders) {
     if (header.raw.length === 94) { validateFileHeader(header, context); }
@@ -860,6 +884,7 @@ function validateFieldsAndRelationships(document: AchDocument, context: Validati
   }
 
   validateFileControl(document, batchTotals, context);
+  validateNetPosition(document, batchTotals, context);
 }
 
 export function validateAch(

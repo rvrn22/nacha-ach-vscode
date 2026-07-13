@@ -27,7 +27,7 @@ function usage(): string {
   return `Usage: ach-validate [options] <file.ach> [...files]\n\n` +
     `Options:\n` +
     `  --format text|json|sarif       Output format (default: text)\n` +
-    `  --profile nacha|unblocked      Validation profile (default: nacha)\n` +
+    `  --profile nacha|unblocked|balanced  Validation profile (default: nacha)\n` +
     `  --rule CODE=SEVERITY[:REASON]  Override or suppress a rule\n` +
     `  --fail-on error|warning|never  Exit-code threshold (default: error)\n` +
     `  --help                         Show this help\n`;

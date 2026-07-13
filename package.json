@@ -158,7 +158,7 @@
         "nachaFileParser.validationProfile": {
           "type": "string",
           "default": "nacha",
-          "description": "Named validation profile. Built-ins are 'nacha' and 'unblocked'; custom names can be defined in nachaFileParser.validationProfiles."
+          "description": "Named validation profile. Built-ins are 'nacha', 'unblocked', and 'balanced'; custom names can be defined in nachaFileParser.validationProfiles."
         },
         "nachaFileParser.validationProfiles": {
           "type": "object",
@@ -169,13 +169,14 @@
             "properties": {
               "extends": {
                 "type": "string",
-                "enum": ["nacha", "unblocked"],
+                "enum": ["nacha", "unblocked", "balanced"],
                 "default": "nacha"
               },
               "displayName": { "type": "string" },
               "requireBlocking": { "type": "boolean" },
               "validateSecCompatibility": { "type": "boolean" },
               "validateAsciiCharacters": { "type": "boolean" },
+              "requireNetZero": { "type": "boolean", "description": "Require calculated file debit and credit totals to net to zero. This checks arithmetic, not the identity of an offset account." },
               "ruleOverrides": {
                 "type": "object",
                 "additionalProperties": {

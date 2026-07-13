@@ -148,6 +148,7 @@ export function activate(context: vscode.ExtensionContext) {
 			{ label: '$(arrow-up) Credits', description: `$${formatAchCents(analysis.summary.totalCreditCents)}` },
 			{ label: '$(arrow-down) Debits', description: `$${formatAchCents(analysis.summary.totalDebitCents)}` },
 			{ label: '$(diff) Net Amount', description: `$${formatAchCents(analysis.summary.netAmountCents)}` },
+			{ label: '$(symbol-operator) Net Position', description: analysis.summary.netPosition === 'zero' ? 'Net zero' : `${analysis.summary.netPosition} $${formatAchCents(analysis.summary.netPositionAmountCents)}` },
 			{ label: '$(error) Errors', description: String(errors) },
 			{ label: '$(warning) Warnings', description: String(warnings) },
 			{ label: '$(settings) Profile', description: analysis.profile.displayName },

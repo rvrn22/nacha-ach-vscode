@@ -1,7 +1,7 @@
 export type AchDiagnosticSeverity = 0 | 1 | 2 | 3;
 export type AchRuleSeverityName = 'error' | 'warning' | 'information' | 'hint' | 'off';
 
-export const ACH_RULESET_VERSION = '2026.07.5';
+export const ACH_RULESET_VERSION = '2026.07.6';
 
 export type AchRuleCategory =
   | 'physical'
@@ -39,6 +39,7 @@ export type AchValidationProfile = {
   requireBlocking: boolean;
   validateSecCompatibility: boolean;
   validateAsciiCharacters: boolean;
+  requireNetZero: boolean;
   rulesVersion: string;
   ruleOverrides: Record<string, AchRuleOverride>;
 };
@@ -54,6 +55,7 @@ export const nachaValidationProfile: AchValidationProfile = {
   requireBlocking: true,
   validateSecCompatibility: true,
   validateAsciiCharacters: true,
+  requireNetZero: false,
   rulesVersion: ACH_RULESET_VERSION,
   ruleOverrides: {},
 };
@@ -67,4 +69,12 @@ export const unblockedValidationProfile: AchValidationProfile = {
   id: 'institution-unblocked',
   displayName: 'Institution-compatible unblocked file',
   requireBlocking: false,
+};
+
+/** An opt-in institution profile for files expected to carry their offset. */
+export const balancedValidationProfile: AchValidationProfile = {
+  ...nachaValidationProfile,
+  id: 'nacha-balanced',
+  displayName: 'Nacha format + net-zero totals',
+  requireNetZero: true,
 };
