@@ -502,6 +502,55 @@ function validateMicroEntries(document: AchDocument, context: ValidationContext)
   }
 }
 
+function validateSecEntryFields(
+  entry: AchEntry,
+  batch: AchBatch,
+  rule: TransactionCodeRule | undefined,
+  context: ValidationContext,
+): void {
+  if (!rule || rule.kind === 'return') { return; }
+
+  const record = entry.detail;
+  const secCode = batch.secCode;
+  const standardAccountSecs = ['ARC', 'BOC', 'CCD', 'CTX', 'PPD', 'RCK', 'TEL', 'WEB'];
+  if (standardAccountSecs.includes(secCode) && record.raw.substring(12, 29).trim().length === 0) {
+    context.add(record, 12, 29, 'ACH-SEC-ACCOUNT-REQUIRED', 'sec', `DFI Account Number is required for ${secCode} entries`);
+  }
+
+  const receiverRange: [number, number] = secCode === 'CTX' ? [58, 74] : [54, 76];
+  if (['CCD', 'CTX', 'PPD', 'RCK', 'TEL', 'WEB'].includes(secCode)
+    && record.raw.substring(receiverRange[0], receiverRange[1]).trim().length === 0) {
+    const receiverLabel = ['CCD', 'CTX'].includes(secCode) ? 'Receiving Company Name' : 'Individual Name';
+    context.add(record, receiverRange[0], receiverRange[1], 'ACH-SEC-RECEIVER-NAME-REQUIRED', 'sec', `${receiverLabel} is required for ${secCode} entries`);
+  }
+
+  if (['ARC', 'BOC', 'RCK'].includes(secCode) && record.raw.substring(39, 54).trim().length === 0) {
+    context.add(record, 39, 54, 'ACH-SEC-CHECK-SERIAL-REQUIRED', 'sec', `Check Serial Number is required for ${secCode} entries`);
+  }
+
+  if (secCode === 'WEB'
+    && rule.direction === 'credit'
+    && ['payment', 'prenote'].includes(rule.kind)
+    && record.raw.substring(39, 54).trim().length === 0) {
+    context.add(record, 39, 54, 'ACH-WEB-CREDIT-ORIGINATOR-NAME', 'sec', 'A WEB credit requires the consumer Originator name in the Individual Identification Number field');
+  }
+
+  if (secCode === 'CTX') {
+    const declaredRaw = record.raw.substring(54, 58);
+    if (!/^\d{4}$/.test(declaredRaw)) {
+      context.add(record, 54, 58, 'ACH-CTX-ADDENDA-COUNT-NUMERIC', 'sec', 'CTX Number of Addenda Records must contain four digits', { actual: declaredRaw });
+    } else {
+      const expected = String(entry.addenda.length).padStart(4, '0');
+      if (declaredRaw !== expected) {
+        context.add(record, 54, 58, 'ACH-CTX-ADDENDA-COUNT', 'sec', 'Declared CTX addenda count does not match actual attached addenda records', { expected, actual: declaredRaw });
+      }
+    }
+    if (record.raw.substring(74, 76).trim().length > 0) {
+      context.add(record, 74, 76, 'ACH-CTX-RESERVED', 'field', 'CTX Entry Detail reserved field must be blank');
+    }
+  }
+}
+
 function validateEntry(entry: AchEntry, batch: AchBatch, context: ValidationContext): TransactionCodeRule | undefined {
   const record = entry.detail;
   const transactionCode = record.raw.substring(1, 3);
@@ -558,6 +607,7 @@ function validateEntry(entry: AchEntry, batch: AchBatch, context: ValidationCont
     }
   }
 
+  validateSecEntryFields(entry, batch, rule, context);
   validateEntryAddenda(entry, batch, rule, context);
   return rule;
 }

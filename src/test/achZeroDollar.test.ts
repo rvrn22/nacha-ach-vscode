@@ -41,6 +41,9 @@ function zeroDollarFile(options: {
   const credit = transaction.direction === 'credit' ? amount : 0n;
   const trace = '061000100000001';
   const count = 1 + (hasAddenda ? 1 : 0);
+  const contextualEntryFields: FieldValue[] = secCode === 'CTX'
+    ? [[54, number(hasAddenda ? 1 : 0, 4)], [58, 'RECEIVER']]
+    : [[54, 'RECEIVER']];
   const records = [
     makeRecord('1', [
       [1, '01'], [3, ' 061000104'], [13, ' 061000104'], [23, '260712'],
@@ -52,7 +55,7 @@ function zeroDollarFile(options: {
     ]),
     makeRecord('6', [
       [1, transactionCode], [3, '06100010'], [11, '4'], [12, '123456789'],
-      [29, number(amount, 10)], [39, 'ZERO-DOLLAR'], [54, 'RECEIVER'],
+      [29, number(amount, 10)], [39, 'ZERO-DOLLAR'], ...contextualEntryFields,
       [78, hasAddenda ? '1' : '0'], [79, trace],
     ]),
   ];

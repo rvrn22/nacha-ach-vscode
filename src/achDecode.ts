@@ -34,7 +34,7 @@ const secDescriptions: Record<string, string> = {
   WEB: 'Internet-Initiated/Mobile Entry',
 };
 
-const sensitiveFieldPattern = /(?:account number|company identification|originator identification|individual identification|receiver id|identification number|foreign receiver)/i;
+const sensitiveFieldPattern = /(?:account number|check serial|company identification|originator identification|individual identification|receiver id|identification number|foreign receiver)/i;
 
 export function isSensitiveAchField(fieldName: string): boolean {
   return sensitiveFieldPattern.test(fieldName);
@@ -109,6 +109,16 @@ export function decodeAchField(record: AchRecord, field: AchField, maskSensitive
   if (field.name === 'Addenda Record Indicator') {
     const description = value === '1' ? 'Addenda attached' : value === '0' ? 'No addenda' : undefined;
     return { display: description ? `${value} — ${description}` : value, raw, masked: false };
+  }
+  if (field.name === 'Payment Type Code') {
+    const description = value === 'R'
+      ? 'Recurring Entry'
+      : value === 'S'
+        ? 'Single Entry'
+        : value === 'ST'
+          ? 'Standing Authorization'
+          : 'Originator-defined';
+    return { display: `${value} — ${description}`, raw, masked: false };
   }
   if (field.name === 'Number of Addenda Records' && /^\d+$/.test(value)) {
     return { display: BigInt(value).toString(), raw, masked: false };

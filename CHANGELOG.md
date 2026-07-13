@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added SEC-aware Entry Detail field names and required-data validation for common domestic ARC, BOC, RCK, CCD, CTX, PPD, TEL, and WEB entries.
+- Added WEB-credit Originator-name validation, Payment Type decoding, masked check serials, and representative SEC fixtures.
 - Corrected the fixed-width field layouts for IAT addenda types 10–16 and added complete type 17/18 decoding.
 - Added IAT required-field, reserved-column, qualifier, country, optional-count/order, per-type sequence, and Entry Detail linkage validation.
 - Added `ACCTVERIFY` Micro-Entry classification, credit-amount and transaction-kind validation, offset warnings, counts, and safe description repair.
@@ -14,7 +16,7 @@
 - Added reversal-batch classification, explorer/report counts, description repair, and transaction-kind validation.
 - Added dedicated domestic and IAT field layouts for Return (type 99) and Notification of Change (type 98) addenda.
 - Added `COR` and `IATCOR` validation, Return/NOC field rules, full-trace navigation, and deterministic trace synchronization.
-- Added Return/NOC, reversal, prenote, zero-dollar, net-position, Micro-Entry, and complete-IAT regression coverage and advanced the independent ruleset to `2026.07.8`.
+- Added Return/NOC, reversal, prenote, zero-dollar, net-position, Micro-Entry, complete-IAT, and common domestic SEC regression coverage and advanced the independent ruleset to `2026.07.9`.
 
 All notable changes to the "nacha-file-parser" extension will be documented in this file.
 

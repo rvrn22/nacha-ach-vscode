@@ -254,6 +254,50 @@ export const recordFields: Record<string, FieldDefinition[]> = {
   ]
 };
 
+function entryFieldsWith(overrides: Record<number, Pick<FieldDefinition, 'name' | 'description'>>): FieldDefinition[] {
+  return recordFields['6'].map(field => overrides[field.start] ? { ...field, ...overrides[field.start] } : field);
+}
+
+const ctxEntryFields: FieldDefinition[] = [
+  ...recordFields['6'].slice(0, 7).map(field => field.start === 39
+    ? { ...field, name: 'Identification Number', description: 'Optional number used by the Originator to identify the entry' }
+    : field),
+  { start: 54, end: 58, name: 'Number of Addenda Records', description: 'Four-digit count of addenda records attached to this CTX entry' },
+  { start: 58, end: 74, name: 'Receiving Company Name / ID Number', description: 'Name or identifying number of the corporate Receiver' },
+  { start: 74, end: 76, name: 'Reserved', description: 'Blank/spaces' },
+  { start: 76, end: 78, name: 'Discretionary Data', description: 'Optional data for originator use' },
+  ...recordFields['6'].slice(9),
+];
+
+// These SEC classes share the standard 94-character Entry Detail shape but
+// assign different business meaning to positions 40-78.
+const entryFieldsBySec: Record<string, FieldDefinition[]> = {
+  ARC: entryFieldsWith({
+    39: { name: 'Check Serial Number', description: 'Check serial number from the converted source document' },
+    54: { name: 'Individual Name / Receiving Company Name', description: 'Optional Receiver name' },
+  }),
+  BOC: entryFieldsWith({
+    39: { name: 'Check Serial Number', description: 'Check serial number from the converted source document' },
+    54: { name: 'Individual Name / Receiving Company Name', description: 'Optional Receiver name' },
+  }),
+  RCK: entryFieldsWith({
+    39: { name: 'Check Serial Number', description: 'Check serial number from the represented check' },
+    54: { name: 'Individual Name', description: 'Name of the Receiver on the represented check' },
+  }),
+  CCD: entryFieldsWith({
+    39: { name: 'Identification Number', description: 'Optional number used by the Originator to identify the entry' },
+    54: { name: 'Receiving Company Name', description: 'Name of the corporate Receiver' },
+  }),
+  CTX: ctxEntryFields,
+  WEB: entryFieldsWith({
+    39: { name: 'Individual Identification Number / P2P Originator Name', description: 'Optional for WEB debits; contains the consumer Originator name for a WEB credit' },
+    76: { name: 'Payment Type Code', description: 'Optional Originator-defined code; R, S, and ST have conventional meanings' },
+  }),
+  TEL: entryFieldsWith({
+    76: { name: 'Payment Type Code', description: 'Optional Originator-defined code; R, S, and ST have conventional meanings' },
+  }),
+};
+
 export function getFieldsForRecord(recordType: string, line?: string, secCode?: string): FieldDefinition[] | undefined {
   let fields: FieldDefinition[] | undefined;
 
@@ -271,6 +315,10 @@ export function getFieldsForRecord(recordType: string, line?: string, secCode?: 
       const addendaType = line.substring(1, 3);
       fields = addendaIATFields[addendaType] || recordFields['7'];
     }
+  }
+
+  if (!fields && recordType === '6' && secCode) {
+    fields = entryFieldsBySec[secCode];
   }
 
   if (!fields) {

@@ -189,9 +189,23 @@ Status: Completed
 - [x] Relate every IAT addenda record to the last seven digits of its Entry Detail trace.
 - [x] Replace simplified legacy IAT fixtures and add focused valid/invalid regression coverage.
 
+## Post-roadmap — SEC-aware domestic Entry Detail fields
+
+Status: Completed
+
+- [x] Decode converted-check serial numbers for ARC, BOC, and RCK entries.
+- [x] Decode CCD/CTX corporate Receiver fields and WEB/TEL Payment Type Codes contextually.
+- [x] Validate required account, Receiver-name, and converted-check-serial fields for common domestic SEC layouts.
+- [x] Require the consumer Originator name for Person-to-Person WEB credits.
+- [x] Decode conventional Payment Type values without rejecting permitted Originator-defined codes.
+- [x] Mask converted-check serial numbers in decoded views.
+- [x] Add representative valid and targeted-invalid fixtures for ARC, BOC, RCK, CCD, CTX, PPD, TEL, and WEB.
+
 ## Test strategy
 
 - [ ] Golden valid/invalid fixtures for every supported SEC code.
+  - [x] Common domestic ARC, BOC, RCK, CCD, CTX, PPD, TEL, and WEB layouts.
+  - [ ] Specialized ACK, ADV, ATX, CIE, DNE, ENR, MTE, POS, SHR, and TRX layouts.
 - [ ] Returns, NOCs, reversals, prenotes, balanced/unbalanced files, and zero-dollar entries.
   - [x] Returns and NOCs.
   - [x] Reversals.
