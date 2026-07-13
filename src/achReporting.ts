@@ -71,6 +71,8 @@ export function createAchJsonReport(input: AchReportInput) {
       entries: input.summary.entries,
       reversalBatches: input.summary.reversalBatches,
       reversalEntries: input.summary.reversalEntries,
+      batchesWithPrenotes: input.summary.batchesWithPrenotes,
+      prenoteEntries: input.summary.prenoteEntries,
     },
     result: {
       valid: input.diagnostics.every(diagnostic => diagnostic.severity !== 0),

@@ -143,7 +143,8 @@ export class AchExplorerProvider implements vscode.TreeDataProvider<AchExplorerN
     fileNode.id = `${uri.toString()}#file`;
     fileNode.iconPath = new vscode.ThemeIcon('file-binary');
     const reversalText = summary.reversalBatches > 0 ? ` · ${summary.reversalEntries} reversal entries` : '';
-    const summaryText = `${summary.batches} batches · ${summary.entries} entries${reversalText} · $${formatAchCents(summary.totalCreditCents)} CR · $${formatAchCents(summary.totalDebitCents)} DR`;
+    const prenoteText = summary.prenoteEntries > 0 ? ` · ${summary.prenoteEntries} prenotes` : '';
+    const summaryText = `${summary.batches} batches · ${summary.entries} entries${reversalText}${prenoteText} · $${formatAchCents(summary.totalCreditCents)} CR · $${formatAchCents(summary.totalDebitCents)} DR`;
     addDiagnosticBadge(fileNode, diagnostics, summaryText);
 
     for (const header of document.fileHeaders) {
@@ -251,7 +252,7 @@ export class AchExplorerProvider implements vscode.TreeDataProvider<AchExplorerN
     const traceSequence = trimmed(entry.detail, 87, 94) || String(index + 1);
     const node = new AchExplorerNode(`Entry ${traceSequence} · ${transaction?.description ?? transactionCode}`, 'entry', vscode.TreeItemCollapsibleState.Collapsed);
     node.id = `${uri.toString()}#entry-${entry.detail.line}`;
-    node.iconPath = new vscode.ThemeIcon('symbol-field');
+    node.iconPath = new vscode.ThemeIcon(entry.isPrenote ? 'preview' : 'symbol-field');
     setSourceCommand(node, uri, entry.detail.line, 0, entry.detail.raw.length);
     const description = [entryAmount(entry), entryAccount(entry, maskSensitiveValues), `${entry.addenda.length} addenda`].filter(Boolean).join(' · ');
     addDiagnosticBadge(node, diagnosticsForLines(diagnostics, entry.records.map(record => record.line)), description);

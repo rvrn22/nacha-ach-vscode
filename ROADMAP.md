@@ -129,12 +129,25 @@ Status: Completed
 - [x] Avoid unverifiable claims about the absent original entry or banking-day timing.
 - [x] Add valid, invalid, fix, summary, and explorer regression coverage.
 
+## Post-roadmap — Prenotification awareness
+
+Status: Completed
+
+- [x] Classify prenotes by transaction code with SEC-aware DNE/ENR exclusions.
+- [x] Surface prenote counts in the explorer, summaries, and reports.
+- [x] Require zero amounts with a dedicated diagnostic.
+- [x] Support mixed live/prenote batches and SEC-compatible optional addenda.
+- [x] Preserve mandatory IAT addenda validation for IAT prenotes.
+- [x] Avoid unverifiable claims about the three-Banking-Day waiting period.
+- [x] Remove the legacy field-only amount fix that could stale aggregate controls.
+
 ## Test strategy
 
 - [ ] Golden valid/invalid fixtures for every supported SEC code.
 - [ ] Returns, NOCs, reversals, prenotes, balanced/unbalanced files, and zero-dollar entries.
   - [x] Returns and NOCs.
   - [x] Reversals.
+  - [x] Prenotes.
 - [ ] IAT addenda presence, order, count, and trace relationships.
 - [ ] CRLF/LF, tabs, non-ASCII characters, short/long records, and padding edge cases.
 - [ ] Property-style mutations of counts, hashes, totals, routing digits, and record order.

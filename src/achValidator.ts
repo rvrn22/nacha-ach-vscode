@@ -4,6 +4,7 @@ import {
   allowedAddendaTypesForSec,
   knownSecCodes,
   maximumAddendaForSec,
+  isPrenoteTransaction,
   transactionCodeCompatibility,
   transactionCodes,
   type TransactionCodeRule,
@@ -436,7 +437,16 @@ function validateEntry(entry: AchEntry, batch: AchBatch, context: ValidationCont
   if (amount === undefined) {
     context.add(record, 29, 39, 'ACH-FIELD-AMOUNT-NUMERIC', 'field', 'Amount must contain 10 digits', { actual: amountRaw });
   } else if (rule && ['prenote', 'zeroDollar'].includes(rule.kind) && amount !== 0n) {
-    context.add(record, 29, 39, 'ACH-FIELD-NONMONETARY-AMOUNT', 'field', `${rule.description} must have a zero amount`, { expected: '0000000000', actual: amountRaw });
+    const prenote = isPrenoteTransaction(rule, batch.secCode);
+    context.add(
+      record,
+      29,
+      39,
+      prenote ? 'ACH-PRENOTE-AMOUNT-ZERO' : 'ACH-FIELD-NONMONETARY-AMOUNT',
+      'field',
+      `${prenote ? 'Prenotification entry' : rule.description} must have a zero amount`,
+      { expected: '0000000000', actual: amountRaw },
+    );
   }
 
   const rdfi = record.raw.substring(3, 11);

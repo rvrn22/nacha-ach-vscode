@@ -143,6 +143,7 @@ export function activate(context: vscode.ExtensionContext) {
 			{ label: '$(list-ordered) Entries', description: String(analysis.summary.entries) },
 			{ label: '$(discard) Reversal Batches', description: String(analysis.summary.reversalBatches) },
 			{ label: '$(arrow-swap) Reversal Entries', description: String(analysis.summary.reversalEntries) },
+			{ label: '$(preview) Prenotification Entries', description: String(analysis.summary.prenoteEntries) },
 			{ label: '$(arrow-up) Credits', description: `$${formatAchCents(analysis.summary.totalCreditCents)}` },
 			{ label: '$(arrow-down) Debits', description: `$${formatAchCents(analysis.summary.totalDebitCents)}` },
 			{ label: '$(diff) Net Amount', description: `$${formatAchCents(analysis.summary.netAmountCents)}` },

@@ -59,6 +59,10 @@ const transactionCodeRules: TransactionCodeRule[] = [
 
 export const transactionCodes = new Map(transactionCodeRules.map(rule => [rule.code, rule]));
 
+export function isPrenoteTransaction(rule: TransactionCodeRule | undefined, secCode: string): boolean {
+  return rule?.kind === 'prenote' && !['DNE', 'ENR'].includes(secCode);
+}
+
 export const knownSecCodes = new Set([
   'ACK', 'ADV', 'ARC', 'ATX', 'BOC', 'CCD', 'CIE', 'COR', 'CTX', 'DNE', 'ENR',
   'IAT', 'MTE', 'POP', 'POS', 'PPD', 'RCK', 'SHR', 'TEL', 'TRX', 'WEB',

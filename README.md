@@ -32,6 +32,14 @@ A professional Visual Studio Code extension for developers and treasury professi
 - **Visible Counts**: Includes reversal batch and entry counts in file summaries and redacted JSON reports.
 - **No False Comparison Claims**: Does not claim to verify Company ID, SEC, amount, originator, timing, or direction against an original entry that is not present.
 
+### 🧪 Prenotification Awareness
+- **SEC-Aware Classification**: Identifies prenotes from their transaction code without mislabeling DNE or ENR non-dollar entries that share codes.
+- **Zero-Amount Validation**: Reports a dedicated diagnostic when a prenote carries a nonzero amount.
+- **Valid Mixed Batches**: Supports prenotes mixed with live entries and permits addenda according to the batch SEC rules.
+- **IAT Requirements Preserved**: IAT prenotes still require the seven mandatory IAT addenda records.
+- **Visible Counts**: Shows prenote entries in the decoded explorer, file summary, and redacted JSON report.
+- **Timing Boundary**: Does not claim to verify the three-Banking-Day waiting period from a single file.
+
 ### 🎨 Visual Intelligence
 - **Alternating Field Highlighting**: Provides visual cues for field boundaries with alternating colors to make fixed-width files readable.
 - **Interactive Hovers**: Hover over any position to see the field name, description, start/end positions, and the raw value.
@@ -63,7 +71,7 @@ A professional Visual Studio Code extension for developers and treasury professi
 ### 📋 Profiles, Reports, and Automation
 - **Named Profiles**: Define institution/operator profiles that extend strict or unblocked validation behavior.
 - **Explained Overrides**: Change or suppress exact rules, categories, or all rules only with a recorded reason.
-- **Versioned Rules**: Reports identify ruleset version `2026.07.3` independently from the extension version.
+- **Versioned Rules**: Reports identify ruleset version `2026.07.4` independently from the extension version.
 - **Redacted Reports**: Export JSON or SARIF without exposing account numbers and individual identifiers.
 - **Headless CLI**: Run the same parser and validator in CI, scripts, and pre-upload workflows.
 - **Text Detection**: High-confidence ACH content in `.txt` files can switch to ACH language mode with one click.
