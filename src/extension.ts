@@ -1,12 +1,20 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
-import { parseAch, parseAchSummary, type AchDiagnostic } from './nachaParser';
+import {
+	formatAchCents,
+	nachaValidationProfile,
+	parseAch,
+	parseAchSummary,
+	unblockedValidationProfile,
+	type AchDiagnostic,
+} from './nachaParser';
 import { getAchFieldAtPosition, parseAchDocument, type AchDocument } from './achDocument';
 import { recordTypeDescriptions } from './nachaFields';
 
 type AchAnalysis = {
 	version: number;
+	profileId: string;
 	document: AchDocument;
 	diagnostics: AchDiagnostic[];
 	summary: ReturnType<typeof parseAchSummary>;
@@ -30,16 +38,19 @@ export function activate(context: vscode.ExtensionContext) {
 	const analysisCache = new Map<string, AchAnalysis>();
 	const getAnalysis = (doc: vscode.TextDocument): AchAnalysis => {
 		const key = doc.uri.toString();
+		const profileSetting = vscode.workspace.getConfiguration('nachaFileParser', doc.uri).get<string>('validationProfile', 'nacha');
+		const profile = profileSetting === 'unblocked' ? unblockedValidationProfile : nachaValidationProfile;
 		const cached = analysisCache.get(key);
-		if (cached?.version === doc.version) {
+		if (cached?.version === doc.version && cached.profileId === profile.id) {
 			return cached;
 		}
 
 		const achDocument = parseAchDocument(doc.getText());
 		const analysis: AchAnalysis = {
 			version: doc.version,
+			profileId: profile.id,
 			document: achDocument,
-			diagnostics: parseAch(achDocument),
+			diagnostics: parseAch(achDocument, profile),
 			summary: parseAchSummary(achDocument),
 		};
 		analysisCache.set(key, analysis);
@@ -178,19 +189,31 @@ export function activate(context: vscode.ExtensionContext) {
 				new vscode.Position(d.line, d.start),
 				new vscode.Position(d.line, d.end)
 			);
-			diagnostics.push(new vscode.Diagnostic(range, d.message, d.severity));
+			const diagnostic = new vscode.Diagnostic(range, d.message, d.severity);
+			diagnostic.source = `NACHA · ${d.category}`;
+			diagnostic.code = d.code;
+			if (d.related?.length) {
+				diagnostic.relatedInformation = d.related.map(item => new vscode.DiagnosticRelatedInformation(
+					new vscode.Location(
+						doc.uri,
+						new vscode.Range(item.line, item.start, item.line, item.end),
+					),
+					item.message,
+				));
+			}
+			diagnostics.push(diagnostic);
 		}
 		diagnosticCollection.set(doc.uri, diagnostics);
 
 		// Update status bar
 		const summary = analysis.summary;
-		statusBarItem.text = `$(file-code) Batches: ${summary.batches} $(list-ordered) Entries: ${summary.entries} $(symbol-numeric) Credits: $${summary.totalCredit.toFixed(2)} Debits: $${summary.totalDebit.toFixed(2)}`;
+		statusBarItem.text = `$(file-code) Batches: ${summary.batches} $(list-ordered) Entries: ${summary.entries} $(symbol-numeric) Credits: $${formatAchCents(summary.totalCreditCents)} Debits: $${formatAchCents(summary.totalDebitCents)}`;
 		statusBarItem.tooltip = `NACHA File Summary\n` +
 			`Batches: ${summary.batches}\n` +
 			`Entries: ${summary.entries}\n` +
-			`Credits: $${summary.totalCredit.toFixed(2)}\n` +
-			`Debits: $${summary.totalDebit.toFixed(2)}\n` +
-			`Net Amount: $${(summary.totalCredit - summary.totalDebit).toFixed(2)}`;
+			`Credits: $${formatAchCents(summary.totalCreditCents)}\n` +
+			`Debits: $${formatAchCents(summary.totalDebitCents)}\n` +
+			`Net Amount: $${formatAchCents(summary.netAmountCents)}`;
 		statusBarItem.show();
 	};
 
@@ -368,6 +391,12 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.window.onDidChangeActiveTextEditor(() => updateForEditor()),
 		vscode.workspace.onDidChangeTextDocument(e => {
 			if (e.document.languageId === 'ach') {
+				updateForEditor();
+			}
+		}),
+		vscode.workspace.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration('nachaFileParser.validationProfile')) {
+				analysisCache.clear();
 				updateForEditor();
 			}
 		}),

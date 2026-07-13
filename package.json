@@ -45,7 +45,25 @@
         "command": "nacha-file-parser.helloWorld",
         "title": "Hello World"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "ACH Syntax Highlighter and Validator",
+      "properties": {
+        "nachaFileParser.validationProfile": {
+          "type": "string",
+          "enum": [
+            "nacha",
+            "unblocked"
+          ],
+          "enumDescriptions": [
+            "Require physical records and padding to form complete blocks of 10.",
+            "Allow institutions that accept unblocked files while retaining all other validations."
+          ],
+          "default": "nacha",
+          "description": "Controls physical ACH blocking validation."
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",

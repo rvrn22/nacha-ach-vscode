@@ -65,7 +65,7 @@ suite('ACH Document Model Test Suite', () => {
 
   test('Applies IAT field definitions using batch context', () => {
     const batchHeader = record('5', [[4, 'IAT'], [50, 'IAT']]);
-    const entry = record('6', [[15, '07']]);
+    const entry = record('6', [[12, '0007']]);
     const addenda = record('7', [[1, '10']]);
     const document = parseAchDocument([batchHeader, entry, addenda].join('\n'));
 

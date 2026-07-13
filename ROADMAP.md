@@ -29,20 +29,20 @@ Definition of done: all existing behavior uses one model, existing tests pass, a
 
 ## P0 — Validation correctness and rule engine
 
-Status: Planned
+Status: Completed
 
-- [ ] Replace the permissive record-order flags with an explicit state machine.
-- [ ] Suppress dependent field errors when a record is too short.
-- [ ] Validate complete transaction codes with an explicit code table and SEC compatibility.
-- [ ] Use `bigint` cents for all amounts and aggregate totals.
-- [ ] Validate real calendar dates and valid times, not only digit shapes.
-- [ ] Associate addenda with their entry and validate indicators, counts, types, order, sequences, and traces.
-- [ ] Verify actual IAT addenda rather than only the declared count.
-- [ ] Detect missing or duplicate File Control records even when padding exists.
-- [ ] Validate padding placement and block packing.
-- [ ] Correct inverted batch-control mismatch messages.
-- [ ] Give diagnostics stable codes, expected/actual values, rule profiles, and related source locations.
-- [ ] Separate physical, structural, field, relational, SEC-specific, and institution-profile rules.
+- [x] Replace the permissive record-order flags with an explicit state machine.
+- [x] Suppress dependent field errors when a record is too short.
+- [x] Validate complete transaction codes with an explicit code table and SEC compatibility.
+- [x] Use `bigint` cents for all amounts and aggregate totals.
+- [x] Validate real calendar dates and valid times, not only digit shapes.
+- [x] Associate addenda with their entry and validate indicators, counts, types, order, sequences, and traces.
+- [x] Verify actual IAT addenda rather than only the declared count.
+- [x] Detect missing or duplicate File Control records even when padding exists.
+- [x] Validate padding placement and block packing.
+- [x] Correct inverted batch-control mismatch messages.
+- [x] Give diagnostics stable codes, expected/actual values, rule profiles, and related source locations.
+- [x] Separate physical, structural, field, relational, SEC-specific, and institution-profile rules.
 
 Definition of done: malformed files cannot pass because of padding or declared-but-missing records, and each diagnostic identifies a stable rule and actionable location.
 

@@ -18,8 +18,7 @@ export const iatRecordFields: Record<string, FieldDefinition[]> = {
   '5': [
     { start: 0, end: 1, name: 'Record Type Code', description: '5 - Batch Header Record' },
     { start: 1, end: 4, name: 'Service Class Code', description: '200=Mixed, 220=Credits, 225=Debits' },
-    { start: 4, end: 12, name: 'IAT Indicator', description: 'Always "IAT      "' },
-    { start: 12, end: 20, name: 'Reserved', description: 'Blank/spaces' },
+    { start: 4, end: 20, name: 'IAT Indicator', description: 'Always "IAT" followed by 13 spaces' },
     { start: 20, end: 22, name: 'Foreign Exchange Indicator', description: 'FV=Fixed-to-Variable, VF=Variable-to-Fixed, FF=Fixed-to-Fixed' },
     { start: 22, end: 23, name: 'Foreign Exchange Reference Indicator', description: '1=Exchange Rate, 2=Reference Number, 3=Space filled' },
     { start: 23, end: 38, name: 'Foreign Exchange Reference', description: 'Exchange rate or reference number' },
@@ -40,13 +39,13 @@ export const iatRecordFields: Record<string, FieldDefinition[]> = {
     { start: 1, end: 3, name: 'Transaction Code', description: '22=Chk Credit, 27=Chk Debit, 32=Sav Credit, 37=Sav Debit' },
     { start: 3, end: 11, name: 'Receiving DFI Identification', description: 'First 8 digits of receiving bank routing number' },
     { start: 11, end: 12, name: 'Check Digit', description: '9th digit of routing number (checksum)' },
-    { start: 12, end: 15, name: 'Reserved', description: 'Blank/spaces' },
-    { start: 15, end: 17, name: 'Number of Addenda Records', description: 'Total addenda records for this entry' },
-    { start: 17, end: 29, name: 'Reserved', description: 'Blank/spaces' },
+    { start: 12, end: 16, name: 'Number of Addenda Records', description: '4-digit total of addenda records for this entry' },
+    { start: 16, end: 29, name: 'Reserved', description: 'Blank/spaces' },
     { start: 29, end: 39, name: 'Amount', description: 'Transaction amount in cents' },
     { start: 39, end: 74, name: 'Foreign Receiver\'s Account Number', description: 'Receiver account number' },
-    { start: 74, end: 76, name: 'Reserved', description: 'Blank/spaces' },
-    { start: 76, end: 78, name: 'Gateway Operator Screening Indicator', description: 'OFAC status' },
+    { start: 74, end: 75, name: 'Gateway Operator OFAC Screening Indicator', description: 'Gateway screening status' },
+    { start: 75, end: 76, name: 'Secondary OFAC Screening Indicator', description: 'Secondary screening status' },
+    { start: 76, end: 78, name: 'Reserved', description: 'Blank/spaces' },
     { start: 78, end: 79, name: 'Addenda Record Indicator', description: 'Always 1 for IAT' },
     { start: 79, end: 94, name: 'Trace Number', description: 'Unique transaction identifier' }
   ]

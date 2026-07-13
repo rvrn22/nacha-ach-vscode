@@ -7,9 +7,11 @@ A professional Visual Studio Code extension for developers and treasury professi
 ## Features
 
 ### 🔍 Deep Validation
-- **Bank Routing Checksums**: Automatically validates routing numbers (RDFI/ODFI) using the official NACHA check digit algorithm.
+- **Bank Routing Checksums**: Automatically validates RDFI routing-number check digits using the standard routing checksum algorithm.
 - **Aggregate Totals**: Verifies Batch Controls (Type 8) and File Controls (Type 9) against actual entry counts, debit/credit sums, and entry hashes.
 - **Record Integrity**: Checks for correct record lengths (94 characters), mandatory fields, and proper record ordering (Header -> Batch -> Entry -> Control).
+- **Rule-Based Diagnostics**: Reports stable rule codes, expected and actual values, and related header/control locations across physical, structural, field, relational, and SEC-specific validation.
+- **Validation Profiles**: Supports strict 10-record blocking or an institution-compatible unblocked-file profile.
 
 ### 🌐 Full IAT Support
 - **International Transactions**: Comprehensive support for International ACH Transactions (IAT).
@@ -36,6 +38,7 @@ Simply open any file with the `.ach` extension. The extension activates automati
 
 This extension contributes the following settings:
 
+* `nachaFileParser.validationProfile`: Choose strict NACHA blocking or allow institution-compatible unblocked files.
 * `nachaFileParser.recordTypeColors`: Customize background colors for each record type (1-9).
 * `nachaFileParser.batchRowColors`: Colors for alternating batches.
 * `nachaFileParser.fieldColors`: Text colors for alternating fields.
