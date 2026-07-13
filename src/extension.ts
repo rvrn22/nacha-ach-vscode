@@ -10,6 +10,7 @@ import {
 	type AchDiagnostic,
 } from './nachaParser';
 import { getAchFieldAtPosition, parseAchDocument, type AchDocument } from './achDocument';
+import { AchExplorerProvider } from './achExplorer';
 import { recordTypeDescriptions } from './nachaFields';
 
 type AchAnalysis = {
@@ -34,6 +35,13 @@ export function activate(context: vscode.ExtensionContext) {
 	// Create diagnostic collection
 	const diagnosticCollection = vscode.languages.createDiagnosticCollection('ach');
 	context.subscriptions.push(diagnosticCollection);
+
+	const explorerProvider = new AchExplorerProvider();
+	const explorerView = vscode.window.createTreeView('nacha-file-parser.decodedExplorer', {
+		treeDataProvider: explorerProvider,
+		showCollapseAll: true,
+	});
+	context.subscriptions.push(explorerView);
 
 	const analysisCache = new Map<string, AchAnalysis>();
 	const getAnalysis = (doc: vscode.TextDocument): AchAnalysis => {
@@ -67,6 +75,22 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 
 	context.subscriptions.push(disposable);
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'nacha-file-parser.revealRange',
+			async (uri: vscode.Uri, line: number, start: number, end: number) => {
+				const document = await vscode.workspace.openTextDocument(uri);
+				const editor = await vscode.window.showTextDocument(document, { preview: false });
+				const range = new vscode.Range(line, start, line, end);
+				editor.selection = new vscode.Selection(range.start, range.end);
+				editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+			},
+		),
+		vscode.commands.registerCommand('nacha-file-parser.refreshExplorer', () => {
+			analysisCache.clear();
+			updateForEditor();
+		}),
+	);
 
 
 	// Decorations are created dynamically so they can adapt to light/dark themes.
@@ -170,14 +194,16 @@ export function activate(context: vscode.ExtensionContext) {
 	createDecorationsForTheme(vscode.window.activeColorTheme.kind);
 
 	// Recreate decorations when theme changes so colors adapt to light/dark
-	vscode.window.onDidChangeActiveColorTheme(e => {
-		createDecorationsForTheme(e.kind);
-		updateForEditor();
-	});
+	context.subscriptions.push(
+		vscode.window.onDidChangeActiveColorTheme(e => {
+			createDecorationsForTheme(e.kind);
+			updateForEditor();
+		}),
+	);
 
-	const runOnAch = (doc: vscode.TextDocument) => {
+	const runOnAch = (doc: vscode.TextDocument): AchAnalysis | undefined => {
 		if (doc.languageId !== 'ach') {
-			return;
+			return undefined;
 		}
 
 		const analysis = getAnalysis(doc);
@@ -215,6 +241,7 @@ export function activate(context: vscode.ExtensionContext) {
 			`Debits: $${formatAchCents(summary.totalDebitCents)}\n` +
 			`Net Amount: $${formatAchCents(summary.netAmountCents)}`;
 		statusBarItem.show();
+		return analysis;
 	};
 
 	const applyAchDecorations = (editor: vscode.TextEditor) => {
@@ -302,11 +329,16 @@ export function activate(context: vscode.ExtensionContext) {
 	const updateForEditor = () => {
 		const editor = vscode.window.activeTextEditor;
 		if (editor && editor.document.languageId === 'ach') {
-			runOnAch(editor.document);
+			const analysis = runOnAch(editor.document);
 			applyBatchRowDecorations(editor);
 			applyFieldDecorations(editor);
+			if (analysis) {
+				const maskSensitiveValues = vscode.workspace.getConfiguration('nachaFileParser', editor.document.uri).get<boolean>('maskSensitiveValues', true);
+				explorerProvider.update(editor.document.uri, analysis.document, analysis.diagnostics, analysis.summary, maskSensitiveValues);
+			}
 		} else {
 			statusBarItem.hide();
+			explorerProvider.clear();
 			const ed = editor;
 			if (ed) {
 				for (const t of Object.keys(recordDecorations)) {
@@ -382,6 +414,12 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 	context.subscriptions.push(hoverProvider);
 
+	let selectionTimer: NodeJS.Timeout | undefined;
+	context.subscriptions.push({
+		dispose: () => {
+			if (selectionTimer) { clearTimeout(selectionTimer); }
+		},
+	});
 	context.subscriptions.push(
 		vscode.workspace.onDidOpenTextDocument(doc => {
 			if (doc.languageId === 'ach') {
@@ -395,10 +433,22 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 		}),
 		vscode.workspace.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration('nachaFileParser.validationProfile')) {
+			if (e.affectsConfiguration('nachaFileParser.validationProfile') || e.affectsConfiguration('nachaFileParser.maskSensitiveValues')) {
 				analysisCache.clear();
 				updateForEditor();
 			}
+		}),
+		vscode.window.onDidChangeTextEditorSelection(e => {
+			if (!explorerView.visible || e.textEditor.document.languageId !== 'ach') { return; }
+			if (selectionTimer) { clearTimeout(selectionTimer); }
+			selectionTimer = setTimeout(() => {
+				const position = e.selections[0]?.active;
+				if (!position) { return; }
+				const node = explorerProvider.nodeAt(position.line, position.character);
+				if (node) {
+					void explorerView.reveal(node, { select: true, focus: false, expand: 1 });
+				}
+			}, 50);
 		}),
 		vscode.workspace.onDidCloseTextDocument(doc => analysisCache.delete(doc.uri.toString()))
 	);

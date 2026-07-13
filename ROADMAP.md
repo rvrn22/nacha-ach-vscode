@@ -48,14 +48,14 @@ Definition of done: malformed files cannot pass because of padding or declared-b
 
 ## P1 — Decoded ACH explorer
 
-Status: Planned
+Status: Completed
 
-- [ ] Add an expandable `File -> Batch -> Entry -> Addenda` side view.
-- [ ] Show raw and decoded values for the selected record.
-- [ ] Format amounts, dates, transaction codes, service classes, SEC codes, and routing components.
-- [ ] Mask account numbers and sensitive identifiers by default.
-- [ ] Synchronize selections between the explorer and raw editor.
-- [ ] Display validation badges and batch/file totals.
+- [x] Add an expandable `File -> Batch -> Entry -> Addenda` side view.
+- [x] Show raw and decoded values for the selected record.
+- [x] Format amounts, dates, transaction codes, service classes, SEC codes, and routing components.
+- [x] Mask account numbers and sensitive identifiers by default.
+- [x] Synchronize selections between the explorer and raw editor.
+- [x] Display validation badges and batch/file totals.
 
 Definition of done: a user can understand a file without manually counting character positions while retaining direct access to the raw record.
 

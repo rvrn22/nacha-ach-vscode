@@ -44,8 +44,36 @@
       {
         "command": "nacha-file-parser.helloWorld",
         "title": "Hello World"
+      },
+      {
+        "command": "nacha-file-parser.refreshExplorer",
+        "title": "Refresh Decoded ACH Explorer",
+        "icon": "$(refresh)"
       }
     ],
+    "views": {
+      "explorer": [
+        {
+          "id": "nacha-file-parser.decodedExplorer",
+          "name": "Decoded ACH"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "nacha-file-parser.decodedExplorer",
+        "contents": "Open a file in ACH language mode to inspect its decoded structure."
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "nacha-file-parser.refreshExplorer",
+          "when": "view == nacha-file-parser.decodedExplorer",
+          "group": "navigation"
+        }
+      ]
+    },
     "configuration": {
       "title": "ACH Syntax Highlighter and Validator",
       "properties": {
@@ -61,6 +89,11 @@
           ],
           "default": "nacha",
           "description": "Controls physical ACH blocking validation."
+        },
+        "nachaFileParser.maskSensitiveValues": {
+          "type": "boolean",
+          "default": true,
+          "description": "Masks account numbers and individual identifiers in the Decoded ACH explorer."
         }
       }
     }

@@ -23,6 +23,13 @@ A professional Visual Studio Code extension for developers and treasury professi
 - **Interactive Hovers**: Hover over any position to see the field name, description, start/end positions, and the raw value.
 - **Batch Separation**: Visual borders and unique alternating backgrounds per batch for easy navigation.
 
+### 🧭 Decoded ACH Explorer
+- **Expandable Hierarchy**: Browse files as batches, entries, addenda, records, and fields from the Explorer sidebar.
+- **Raw and Decoded Values**: See fixed-width values beside formatted amounts, dates, transaction codes, service classes, and SEC descriptions.
+- **Synchronized Navigation**: Selecting a decoded field reveals its exact raw characters, while moving the editor cursor selects the matching explorer field.
+- **Privacy by Default**: Account numbers and individual identifiers are masked unless explicitly enabled in settings.
+- **Validation Context**: File, batch, entry, record, and field nodes show error/warning badges and aggregate totals.
+
 ### ⚙️ Highly Customizable
 - **Color Picker Support**: Choose your own colors for every record type (1-9) directly in the VS Code Settings UI.
 - **Theme Friendly**: Supports standardized 8-character hex colors (#rrggbbaa) for transparency.
@@ -33,12 +40,14 @@ Simply open any file with the `.ach` extension. The extension activates automati
 1. **Syntax Highlighting**: Different backgrounds for File Header, Batch Header, Entry Details, etc.
 2. **Diagnostics**: Errors and warnings in the "Problems" panel for missing totals, invalid routing, or record length issues.
 3. **Hover Info**: Detailed NACHA file specification data directly in your editor.
+4. **Decoded ACH Explorer**: Expand the file hierarchy in the Explorer sidebar and select any field to reveal its raw source range.
 
 ## Extension Settings
 
 This extension contributes the following settings:
 
 * `nachaFileParser.validationProfile`: Choose strict NACHA blocking or allow institution-compatible unblocked files.
+* `nachaFileParser.maskSensitiveValues`: Mask account numbers and individual identifiers in the Decoded ACH explorer (enabled by default).
 * `nachaFileParser.recordTypeColors`: Customize background colors for each record type (1-9).
 * `nachaFileParser.batchRowColors`: Colors for alternating batches.
 * `nachaFileParser.fieldColors`: Text colors for alternating fields.
