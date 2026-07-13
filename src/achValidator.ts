@@ -537,7 +537,7 @@ function validateSecEntryFields(
 
   const record = entry.detail;
   const secCode = batch.secCode;
-  const standardAccountSecs = ['ACK', 'ARC', 'ATX', 'BOC', 'CCD', 'CIE', 'CTX', 'DNE', 'ENR', 'MTE', 'POS', 'PPD', 'RCK', 'SHR', 'TEL', 'TRX', 'WEB'];
+  const standardAccountSecs = ['ACK', 'ARC', 'ATX', 'BOC', 'CCD', 'CIE', 'CTX', 'DNE', 'ENR', 'MTE', 'POP', 'POS', 'PPD', 'RCK', 'SHR', 'TEL', 'TRX', 'WEB'];
   if (standardAccountSecs.includes(secCode) && record.raw.substring(12, 29).trim().length === 0) {
     context.add(record, 12, 29, 'ACH-SEC-ACCOUNT-REQUIRED', 'sec', `DFI Account Number is required for ${secCode} entries`);
   }
@@ -551,6 +551,20 @@ function validateSecEntryFields(
 
   if (['ARC', 'BOC', 'RCK'].includes(secCode) && record.raw.substring(39, 54).trim().length === 0) {
     context.add(record, 39, 54, 'ACH-SEC-CHECK-SERIAL-REQUIRED', 'sec', `Check Serial Number is required for ${secCode} entries`);
+  }
+
+  if (secCode === 'POP') {
+    const requiredFields: Array<[number, number, string, string]> = [
+      [39, 48, 'ACH-POP-CHECK-SERIAL-REQUIRED', 'Check Serial Number'],
+      [48, 52, 'ACH-POP-TERMINAL-CITY-REQUIRED', 'Terminal City'],
+      [52, 54, 'ACH-POP-TERMINAL-STATE-REQUIRED', 'Terminal State'],
+    ];
+    for (const [start, end, code, label] of requiredFields) {
+      const value = record.raw.substring(start, end);
+      if (value.trim().length === 0 || /^0+$/.test(value.trim())) {
+        context.add(record, start, end, code, 'sec', `${label} is required for POP entries`);
+      }
+    }
   }
 
   if (['ACK', 'ATX'].includes(secCode)) {

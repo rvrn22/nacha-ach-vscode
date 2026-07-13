@@ -393,6 +393,17 @@ const posEntryFields = entryFieldsWith({
   76: { name: 'Card Transaction Type Code', description: 'Card-network code identifying purchase, cash, reversal, return, adjustment, or miscellaneous activity' },
 });
 
+// Public layout reference: 2025 Nacha Operating Rules, Basic Edition,
+// Appendix Three, POP Entry Detail Record.
+const popEntryFields: FieldDefinition[] = [
+  ...recordFields['6'].slice(0, 6),
+  { start: 39, end: 48, name: 'Check Serial Number', description: 'Check serial number from the source document converted at the point of purchase' },
+  { start: 48, end: 52, name: 'Terminal City', description: 'Four-character city abbreviation for the point-of-purchase terminal' },
+  { start: 52, end: 54, name: 'Terminal State', description: 'Two-character state abbreviation for the point-of-purchase terminal' },
+  { start: 54, end: 76, name: 'Individual Name / Receiving Company Name', description: 'Optional Receiver name' },
+  ...recordFields['6'].slice(8),
+];
+
 const shrEntryFields: FieldDefinition[] = [
   ...recordFields['6'].slice(0, 6),
   { start: 39, end: 43, name: 'Card Expiration Date', description: 'MMYY expiration date of the card used for the transaction' },
@@ -439,6 +450,7 @@ const entryFieldsBySec: Record<string, FieldDefinition[]> = {
   DNE: dneEntryFields,
   ENR: enrEntryFields,
   MTE: mteEntryFields,
+  POP: popEntryFields,
   POS: posEntryFields,
   SHR: shrEntryFields,
   TRX: trxEntryFields,

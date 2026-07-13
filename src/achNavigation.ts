@@ -27,7 +27,8 @@ function recordSymbol(name: string, detail: string, kind: vscode.SymbolKind, rec
 export class AchDocumentSymbolProvider implements vscode.DocumentSymbolProvider {
   constructor(private readonly resolveDocument: DocumentResolver) { }
 
-  provideDocumentSymbols(document: vscode.TextDocument): vscode.DocumentSymbol[] {
+  provideDocumentSymbols(document: vscode.TextDocument, token?: vscode.CancellationToken): vscode.DocumentSymbol[] {
+    if (token?.isCancellationRequested) { return []; }
     const achDocument = this.resolveDocument(document);
     if (achDocument.records.length === 0) { return []; }
     const first = achDocument.records[0];
@@ -41,9 +42,11 @@ export class AchDocumentSymbolProvider implements vscode.DocumentSymbolProvider 
     );
 
     for (const header of achDocument.fileHeaders) {
+      if (token?.isCancellationRequested) { return []; }
       fileSymbol.children.push(recordSymbol('File Header', '', vscode.SymbolKind.Struct, header));
     }
     for (let batchIndex = 0; batchIndex < achDocument.batches.length; batchIndex++) {
+      if (token?.isCancellationRequested) { return []; }
       const batch = achDocument.batches[batchIndex];
       const batchLast = batch.control ?? batch.records.at(-1) ?? batch.header;
       const batchNumber = batch.header.raw.substring(87, 94).trim() || String(batchIndex + 1);
@@ -58,6 +61,7 @@ export class AchDocumentSymbolProvider implements vscode.DocumentSymbolProvider 
       batchSymbol.children.push(recordSymbol('Batch Header', batch.secCode, vscode.SymbolKind.Struct, batch.header));
 
       for (let entryIndex = 0; entryIndex < batch.entries.length; entryIndex++) {
+        if (token?.isCancellationRequested) { return []; }
         const entry = batch.entries[entryIndex];
         const entryLast = entry.addenda.at(-1) ?? entry.detail;
         const sequence = entry.detail.raw.substring(87, 94).trim() || String(entryIndex + 1);
@@ -97,10 +101,12 @@ export class AchDocumentSymbolProvider implements vscode.DocumentSymbolProvider 
 export class AchFoldingRangeProvider implements vscode.FoldingRangeProvider {
   constructor(private readonly resolveDocument: DocumentResolver) { }
 
-  provideFoldingRanges(document: vscode.TextDocument): vscode.FoldingRange[] {
+  provideFoldingRanges(document: vscode.TextDocument, _context?: vscode.FoldingContext, token?: vscode.CancellationToken): vscode.FoldingRange[] {
+    if (token?.isCancellationRequested) { return []; }
     const achDocument = this.resolveDocument(document);
     const ranges: vscode.FoldingRange[] = [];
     for (const batch of achDocument.batches) {
+      if (token?.isCancellationRequested) { return []; }
       const last = batch.control ?? batch.records.at(-1);
       if (last && last.line > batch.header.line) {
         ranges.push(new vscode.FoldingRange(batch.header.line, last.line, vscode.FoldingRangeKind.Region));
@@ -137,11 +143,13 @@ export class AchInlayHintsProvider implements vscode.InlayHintsProvider {
     this.changeEmitter.fire();
   }
 
-  provideInlayHints(document: vscode.TextDocument, range: vscode.Range): vscode.InlayHint[] {
+  provideInlayHints(document: vscode.TextDocument, range: vscode.Range, token?: vscode.CancellationToken): vscode.InlayHint[] {
+    if (token?.isCancellationRequested) { return []; }
     if (!this.hintsEnabled(document)) { return []; }
     const achDocument = this.resolveDocument(document);
     const hints: vscode.InlayHint[] = [];
     for (const record of achDocument.records) {
+      if (token?.isCancellationRequested) { return []; }
       if (record.line < range.start.line || record.line > range.end.line || record.kind === 'padding') { continue; }
       for (const field of record.fields) {
         if (field.range.start >= record.raw.length) { continue; }

@@ -260,22 +260,23 @@ Status: Completed
 
 ## Test strategy
 
-- [ ] Golden valid/invalid fixtures for every supported SEC code.
-  - [x] Common domestic ARC, BOC, RCK, CCD, CTX, PPD, TEL, and WEB layouts.
+- [x] Golden valid/invalid fixtures for every supported SEC code.
+  - [x] Common domestic ARC, BOC, POP, RCK, CCD, CTX, PPD, TEL, and WEB layouts.
   - [x] Specialized ADV layout.
   - [x] Specialized ACK and ATX layouts.
   - [x] Specialized CIE, DNE, and ENR layouts.
   - [x] Specialized MTE, POS, and SHR layouts.
   - [x] Specialized TRX layout.
-- [ ] Returns, NOCs, reversals, prenotes, balanced/unbalanced files, and zero-dollar entries.
+  - [x] COR Notification of Change and IAT international layouts.
+- [x] Returns, NOCs, reversals, prenotes, balanced/unbalanced files, and zero-dollar entries.
   - [x] Returns and NOCs.
   - [x] Reversals.
   - [x] Prenotes.
   - [x] Zero-dollar entries.
   - [x] Balanced/unbalanced file analysis.
 - [x] IAT addenda presence, order, count, field content, sequences, and trace relationships.
-- [ ] CRLF/LF, tabs, non-ASCII characters, short/long records, and padding edge cases.
-- [ ] Property-style mutations of counts, hashes, totals, routing digits, and record order.
+- [x] CRLF/LF, tabs, non-ASCII characters, short/long records, and padding edge cases.
+- [x] Property-style mutations of counts, hashes, totals, routing digits, and record order.
 - [x] Code-action tests that assert exact previewed edits.
-- [ ] Extension integration tests for diagnostics, hovers, symbols, folding, and cancellation.
+- [x] Extension integration tests for diagnostics, hovers, symbols, folding, and cancellation.
 - [x] Large-file performance regression tests.

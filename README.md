@@ -14,8 +14,8 @@ A professional Visual Studio Code extension for developers and treasury professi
 - **Validation Profiles**: Supports strict blocking, institution-compatible unblocked files, and an opt-in net-zero balanced-file profile.
 
 ### 🧩 SEC-Aware Entry Details
-- **Contextual Field Names**: Decodes ARC/BOC/RCK check serials, CCD/CTX corporate Receiver fields, and WEB/TEL Payment Type Codes using their actual SEC meaning.
-- **Required Data Rules**: Validates DFI account numbers, required Receiver names, and converted-check serial numbers for the common domestic Entry Detail layouts.
+- **Contextual Field Names**: Decodes ARC/BOC/RCK check serials, POP check/terminal fields, CCD/CTX corporate Receiver fields, and WEB/TEL Payment Type Codes using their actual SEC meaning.
+- **Required Data Rules**: Validates DFI account numbers, required Receiver names, converted-check serial numbers, and POP terminal city/state fields for common domestic Entry Detail layouts.
 - **WEB Credit Rules**: Requires the consumer Originator name carried in a Person-to-Person WEB credit.
 - **Readable Payment Types**: Decodes conventional `R`, `S`, and `ST` Payment Type values while preserving other Originator-defined codes.
 - **Sensitive Check Data**: Masks converted-check serial numbers by default in decoded views.
@@ -135,7 +135,7 @@ A professional Visual Studio Code extension for developers and treasury professi
 ### 📋 Profiles, Reports, and Automation
 - **Named Profiles**: Define institution/operator profiles that extend strict or unblocked validation behavior.
 - **Explained Overrides**: Change or suppress exact rules, categories, or all rules only with a recorded reason.
-- **Versioned Rules**: Reports identify ruleset version `2026.07.10` independently from the extension version.
+- **Versioned Rules**: Reports identify ruleset version `2026.07.14` independently from the extension version.
 - **Redacted Reports**: Export JSON or SARIF without exposing account numbers and individual identifiers.
 - **Headless CLI**: Run the same parser and validator in CI, scripts, and pre-upload workflows.
 - **Text Detection**: High-confidence ACH content in `.txt` files can switch to ACH language mode with one click.

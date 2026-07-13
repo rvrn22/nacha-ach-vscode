@@ -28,19 +28,28 @@ function secFile(options: {
   identification?: string;
   receiverName?: string;
   paymentType?: string;
+  terminalCity?: string;
+  terminalState?: string;
 }): string {
   const amount = 1234n;
   const transaction = transactionCodes.get(options.transactionCode)!;
   const debit = transaction.direction === 'debit' ? amount : 0n;
   const credit = transaction.direction === 'credit' ? amount : 0n;
   const serviceClass = transaction.direction === 'debit' ? '225' : '220';
-  const checkBased = ['ARC', 'BOC', 'RCK'].includes(options.secCode);
+  const checkBased = ['ARC', 'BOC', 'POP', 'RCK'].includes(options.secCode);
   const identification = options.identification ?? (checkBased ? 'CHECK-12345' : 'ENTRY-REFERENCE');
   const receiverName = options.receiverName
     ?? (['CCD', 'CTX'].includes(options.secCode) ? 'RECEIVING COMPANY' : 'RECEIVER NAME');
   const contextualFields: FieldValue[] = options.secCode === 'CTX'
     ? [[54, '0000'], [58, receiverName.substring(0, 16)]]
-    : [[54, receiverName], [76, options.paymentType ?? '  ']];
+    : options.secCode === 'POP'
+      ? [
+        [39, identification.substring(0, 9)],
+        [48, options.terminalCity ?? 'CHIC'],
+        [52, options.terminalState ?? 'IL'],
+        [54, receiverName],
+      ]
+      : [[39, identification], [54, receiverName], [76, options.paymentType ?? '  ']];
   const records = [
     makeRecord('1', [
       [1, '01'], [3, ' 061000104'], [13, ' 061000104'], [23, '260712'],
@@ -53,7 +62,7 @@ function secFile(options: {
     makeRecord('6', [
       [1, options.transactionCode], [3, '06100010'], [11, '4'],
       [12, options.account ?? 'RECEIVER-ACCOUNT'], [29, number(amount, 10)],
-      [39, identification], ...contextualFields,
+      ...contextualFields,
       [78, '0'], [79, '061000100000001'],
     ]),
     makeRecord('8', [
@@ -78,6 +87,7 @@ suite('ACH SEC-Aware Entry Detail Test Suite', () => {
     const arc = parseAchDocument(secFile({ secCode: 'ARC', transactionCode: '27' }));
     const ccd = parseAchDocument(secFile({ secCode: 'CCD', transactionCode: '22' }));
     const web = parseAchDocument(secFile({ secCode: 'WEB', transactionCode: '27', paymentType: 'ST' }));
+    const pop = parseAchDocument(secFile({ secCode: 'POP', transactionCode: '27' }));
     const arcFields = arc.batches[0].entries[0].detail.fields;
     const ccdFields = ccd.batches[0].entries[0].detail.fields;
     const webDetail = web.batches[0].entries[0].detail;
@@ -93,6 +103,11 @@ suite('ACH SEC-Aware Entry Detail Test Suite', () => {
     assert.strictEqual(ctxFields.find(field => field.range.start === 58)?.name, 'Receiving Company Name / ID Number');
     assert.strictEqual(paymentType.range.start, 76);
     assert.strictEqual(decodeAchField(webDetail, paymentType).display, 'ST — Standing Authorization');
+    assert.deepStrictEqual(pop.batches[0].entries[0].detail.fields.slice(6, 9).map(field => field.name), [
+      'Check Serial Number',
+      'Terminal City',
+      'Terminal State',
+    ]);
   });
 
   test('Accepts representative valid files across the common domestic SEC layouts', () => {
@@ -100,6 +115,7 @@ suite('ACH SEC-Aware Entry Detail Test Suite', () => {
       { secCode: 'ARC', transactionCode: '27' },
       { secCode: 'BOC', transactionCode: '27' },
       { secCode: 'RCK', transactionCode: '27' },
+      { secCode: 'POP', transactionCode: '27' },
       { secCode: 'CCD', transactionCode: '22' },
       { secCode: 'CTX', transactionCode: '22' },
       { secCode: 'PPD', transactionCode: '22' },
@@ -121,6 +137,23 @@ suite('ACH SEC-Aware Entry Detail Test Suite', () => {
     assert.ok(missingAccount.some(item => item.code === 'ACH-SEC-ACCOUNT-REQUIRED'));
     assert.ok(missingCompany.some(item => item.code === 'ACH-SEC-RECEIVER-NAME-REQUIRED'));
     assert.ok(missingSerial.some(item => item.code === 'ACH-SEC-CHECK-SERIAL-REQUIRED'));
+  });
+
+  test('Requires the POP account, source check, terminal city, and terminal state', () => {
+    const diagnostics = parseAch(secFile({
+      secCode: 'POP',
+      transactionCode: '27',
+      account: '',
+      identification: '',
+      terminalCity: '',
+      terminalState: '',
+    }));
+    const codes = new Set(diagnostics.map(item => item.code));
+
+    assert.ok(codes.has('ACH-SEC-ACCOUNT-REQUIRED'));
+    assert.ok(codes.has('ACH-POP-CHECK-SERIAL-REQUIRED'));
+    assert.ok(codes.has('ACH-POP-TERMINAL-CITY-REQUIRED'));
+    assert.ok(codes.has('ACH-POP-TERMINAL-STATE-REQUIRED'));
   });
 
   test('Requires the consumer Originator name for WEB credits', () => {

@@ -27,7 +27,7 @@ import {
 	findRelatedAchRanges,
 	toVscodeRanges,
 } from './achNavigation';
-import { recordTypeDescriptions } from './nachaFields';
+import { AchHoverProvider } from './achHover';
 import { createAchJsonReport, createAchSarifReport, serializeAchReport } from './achReporting';
 import { detectAchContent } from './achDetection';
 
@@ -117,11 +117,13 @@ export function activate(context: vscode.ExtensionContext) {
 	const symbolProvider = new AchDocumentSymbolProvider(doc => getAnalysis(doc).document);
 	const foldingProvider = new AchFoldingRangeProvider(doc => getAnalysis(doc).document);
 	const inlayHintsProvider = new AchInlayHintsProvider(doc => getAnalysis(doc).document);
+	const hoverProvider = new AchHoverProvider(doc => getAnalysis(doc).document);
 	const codeActionProvider = new AchCodeActionProvider(doc => getAnalysis(doc));
 	const fixPreviewProvider = new AchFixPreviewProvider();
 	context.subscriptions.push(
 		vscode.languages.registerDocumentSymbolProvider('ach', symbolProvider),
 		vscode.languages.registerFoldingRangeProvider('ach', foldingProvider),
+		vscode.languages.registerHoverProvider('ach', hoverProvider),
 		vscode.languages.registerInlayHintsProvider('ach', inlayHintsProvider),
 		vscode.languages.registerCodeActionsProvider('ach', codeActionProvider, {
 			providedCodeActionKinds: AchCodeActionProvider.providedCodeActionKinds,
@@ -682,60 +684,6 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 		}, delay));
 	};
-
-	// Register hover provider for ACH files
-	const hoverProvider = vscode.languages.registerHoverProvider('ach', {
-		provideHover(document: vscode.TextDocument, position: vscode.Position): vscode.Hover | undefined {
-			const record = getAnalysis(document).document.recordByLine.get(position.line);
-			if (!record) {
-				return undefined;
-			}
-
-			const recordDesc = recordTypeDescriptions[record.recordType];
-
-			if (!recordDesc && record.kind !== 'padding') {
-				return undefined;
-			}
-
-			// Check for padding row
-			if (record.kind === 'padding') {
-				return new vscode.Hover(
-					new vscode.MarkdownString(
-						`**Padding Record**\n\nBlocking/filler record used to pad file to required block size (multiple of 10 records).`
-					)
-				);
-			}
-
-			const field = getAchFieldAtPosition(record, position.character);
-
-			if (!field) {
-				// Show record type info if not over a specific field
-				return new vscode.Hover(
-					new vscode.MarkdownString(`**${recordDesc}**${record.secCode ? ` (${record.secCode})` : ''}`)
-				);
-			}
-
-			// Build hover content with field details
-			const value = field.value;
-			const markdown = new vscode.MarkdownString();
-			markdown.appendMarkdown(`**${field.name}**\n\n`);
-			markdown.appendMarkdown(`${field.description}\n\n`);
-			markdown.appendMarkdown(`---\n\n`);
-			markdown.appendMarkdown(`**Position:** ${field.start + 1}-${field.end} (${field.end - field.start} chars)\n\n`);
-			if (value) {
-				markdown.appendCodeblock(value, 'text');
-			}
-
-			// Create range for the specific field to highlight only that field
-			const fieldRange = new vscode.Range(
-				new vscode.Position(position.line, field.start),
-				new vscode.Position(position.line, field.end)
-			);
-
-			return new vscode.Hover(markdown, fieldRange);
-		}
-	});
-	context.subscriptions.push(hoverProvider);
 
 	let selectionTimer: NodeJS.Timeout | undefined;
 	context.subscriptions.push({
