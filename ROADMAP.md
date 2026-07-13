@@ -72,18 +72,18 @@ Status: Completed
 
 ## P1 — Safe Quick Fixes
 
-Status: Planned
+Status: Completed
 
-- [ ] Correct a routing check digit.
-- [ ] Recalculate batch controls and File Control.
-- [ ] Synchronize unambiguous control fields with their headers.
-- [ ] Renumber batches, traces, and addenda sequences.
-- [ ] Correct addenda indicators and counts from actual structure.
-- [ ] Add or remove file padding records.
-- [ ] Pad fields only when intent is unambiguous.
-- [ ] Add `Recalculate all derived fields` and `Apply all safe fixes` commands.
-- [ ] Preview multi-record workspace edits before applying them.
-- [ ] Explicitly prohibit automatic routing-number replacement, data truncation, or SEC guessing.
+- [x] Correct a routing check digit.
+- [x] Recalculate batch controls and File Control.
+- [x] Synchronize unambiguous control fields with their headers.
+- [x] Renumber batches, traces, and addenda sequences through an explicit previewed operation.
+- [x] Correct addenda indicators and counts from actual structure.
+- [x] Add or remove file padding records.
+- [x] Pad fields only when intent is unambiguous.
+- [x] Add `Recalculate all derived fields` and `Apply all safe fixes` commands.
+- [x] Preview multi-record workspace edits before applying them.
+- [x] Explicitly prohibit automatic routing-number replacement, data truncation, or SEC guessing.
 
 ## P2 — Profiles, reporting, and automation
 

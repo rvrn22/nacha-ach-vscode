@@ -61,6 +61,18 @@
       {
         "command": "nacha-file-parser.previousProblem",
         "title": "ACH: Go to Previous Problem"
+      },
+      {
+        "command": "nacha-file-parser.recalculateDerivedFields",
+        "title": "ACH: Recalculate All Derived Fields"
+      },
+      {
+        "command": "nacha-file-parser.applyAllSafeFixes",
+        "title": "ACH: Apply All Safe Fixes"
+      },
+      {
+        "command": "nacha-file-parser.renumberSequences",
+        "title": "ACH: Renumber Batches, Traces, and Addenda Sequences"
       }
     ],
     "views": {
@@ -100,6 +112,21 @@
           "command": "nacha-file-parser.previousProblem",
           "when": "editorLangId == ach",
           "group": "navigation@11"
+        },
+        {
+          "command": "nacha-file-parser.recalculateDerivedFields",
+          "when": "editorLangId == ach",
+          "group": "1_modification@10"
+        },
+        {
+          "command": "nacha-file-parser.applyAllSafeFixes",
+          "when": "editorLangId == ach",
+          "group": "1_modification@11"
+        },
+        {
+          "command": "nacha-file-parser.renumberSequences",
+          "when": "editorLangId == ach",
+          "group": "1_modification@12"
         }
       ]
     },

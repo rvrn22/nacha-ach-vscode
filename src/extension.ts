@@ -12,6 +12,12 @@ import {
 import { getAchFieldAtPosition, parseAchDocument, type AchDocument } from './achDocument';
 import { AchExplorerProvider } from './achExplorer';
 import {
+	AchCodeActionProvider,
+	AchFixPreviewProvider,
+	previewAndApplyAchEdits,
+} from './achCodeActions';
+import { buildSequenceRenumberEdits, collectAchFixEdits } from './achFixes';
+import {
 	AchDocumentSymbolProvider,
 	AchFoldingRangeProvider,
 	AchInlayHintsProvider,
@@ -81,10 +87,16 @@ export function activate(context: vscode.ExtensionContext) {
 	const symbolProvider = new AchDocumentSymbolProvider(doc => getAnalysis(doc).document);
 	const foldingProvider = new AchFoldingRangeProvider(doc => getAnalysis(doc).document);
 	const inlayHintsProvider = new AchInlayHintsProvider(doc => getAnalysis(doc).document);
+	const codeActionProvider = new AchCodeActionProvider(doc => getAnalysis(doc));
+	const fixPreviewProvider = new AchFixPreviewProvider();
 	context.subscriptions.push(
 		vscode.languages.registerDocumentSymbolProvider('ach', symbolProvider),
 		vscode.languages.registerFoldingRangeProvider('ach', foldingProvider),
 		vscode.languages.registerInlayHintsProvider('ach', inlayHintsProvider),
+		vscode.languages.registerCodeActionsProvider('ach', codeActionProvider, {
+			providedCodeActionKinds: AchCodeActionProvider.providedCodeActionKinds,
+		}),
+		vscode.workspace.registerTextDocumentContentProvider('ach-fix-preview', fixPreviewProvider),
 	);
 
 	// The command has been defined in the package.json file
@@ -122,6 +134,20 @@ export function activate(context: vscode.ExtensionContext) {
 			new vscode.Range(diagnostic.line, diagnostic.start, diagnostic.line, diagnostic.end),
 		);
 	};
+	const runPreviewedFixes = async (kind: 'derived' | 'all' | 'sequences') => {
+		const editor = vscode.window.activeTextEditor;
+		if (!editor || editor.document.languageId !== 'ach') { return; }
+		const analysis = getAnalysis(editor.document);
+		const edits = kind === 'sequences'
+			? buildSequenceRenumberEdits(analysis.document)
+			: collectAchFixEdits(analysis.document, analysis.diagnostics, kind);
+		const title = kind === 'derived'
+			? 'Recalculate ACH Derived Fields'
+			: kind === 'sequences'
+				? 'Renumber ACH Sequences'
+				: 'Apply All Safe ACH Fixes';
+		await previewAndApplyAchEdits(editor.document, edits, title, fixPreviewProvider);
+	};
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'nacha-file-parser.revealRange',
@@ -141,6 +167,9 @@ export function activate(context: vscode.ExtensionContext) {
 		}),
 		vscode.commands.registerCommand('nacha-file-parser.nextProblem', () => navigateProblem(1)),
 		vscode.commands.registerCommand('nacha-file-parser.previousProblem', () => navigateProblem(-1)),
+		vscode.commands.registerCommand('nacha-file-parser.recalculateDerivedFields', () => runPreviewedFixes('derived')),
+		vscode.commands.registerCommand('nacha-file-parser.applyAllSafeFixes', () => runPreviewedFixes('all')),
+		vscode.commands.registerCommand('nacha-file-parser.renumberSequences', () => runPreviewedFixes('sequences')),
 		vscode.commands.registerCommand('nacha-file-parser.refreshExplorer', () => {
 			analysisCache.clear();
 			updateForEditor();

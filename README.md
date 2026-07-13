@@ -38,6 +38,14 @@ A professional Visual Studio Code extension for developers and treasury professi
 - **Fixed-Width Context**: See the current column and field in the status bar, with an optional column-94 guide and field-name inlay hints.
 - **Related Fields**: Header/control values, aggregate totals, and entry/addenda trace relationships highlight together.
 
+### 🛠 Safe Quick Fixes
+- **Inline Quick Fixes**: Correct routing check digits, derived control values, header/control synchronization, and addenda metadata directly from Problems or the lightbulb menu.
+- **Derived Recalculation**: Rebuild batch and file counts, hashes, debit/credit totals, and block counts from actual entries.
+- **Safe Fix All**: Apply only deterministic fixed-format repairs, including padding and unambiguous trailing spaces.
+- **Explicit Renumbering**: Renumber batches, traces, and addenda sequences only through a separately invoked command.
+- **Diff Before Apply**: Every multi-record command opens a comparison and waits for confirmation.
+- **Ambiguity Guardrails**: The extension never guesses routing numbers, dates, transaction/SEC codes, account data, or truncation.
+
 ### ⚙️ Highly Customizable
 - **Color Picker Support**: Choose your own colors for every record type (1-9) directly in the VS Code Settings UI.
 - **Theme Friendly**: Supports standardized 8-character hex colors (#rrggbbaa) for transparency.
@@ -50,6 +58,7 @@ Simply open any file with the `.ach` extension. The extension activates automati
 3. **Hover Info**: Detailed NACHA file specification data directly in your editor.
 4. **Decoded ACH Explorer**: Expand the file hierarchy in the Explorer sidebar and select any field to reveal its raw source range.
 5. **ACH Navigation Commands**: Use the Command Palette or editor context menu to jump to matching records and validation problems.
+6. **Safe Repairs**: Use individual Quick Fixes or preview `Recalculate All Derived Fields`, `Apply All Safe Fixes`, and sequence-renumbering commands.
 
 ## Extension Settings
 

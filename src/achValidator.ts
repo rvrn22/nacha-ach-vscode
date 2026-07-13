@@ -568,15 +568,19 @@ function compareHeaderControl(
 function validateBatchControl(batch: AchBatch, totals: BatchTotals, context: ValidationContext): void {
   const control = batch.control;
   if (!control || control.raw.length !== 94) { return; }
-  for (const [start, end, code, label] of [
-    [4, 10, 'ACH-FIELD-BATCH-ENTRY-COUNT', 'Entry/Addenda Count'],
-    [10, 20, 'ACH-FIELD-BATCH-HASH', 'Entry Hash'],
-    [20, 32, 'ACH-FIELD-BATCH-DEBIT', 'Total Debit'],
-    [32, 44, 'ACH-FIELD-BATCH-CREDIT', 'Total Credit'],
+  const expectedCount = String(totals.count).padStart(6, '0');
+  const expectedHash = totals.hashValid ? (totals.hash % 10000000000n).toString().padStart(10, '0') : undefined;
+  const expectedDebit = totals.amountsValid ? totals.debit.toString().padStart(12, '0') : undefined;
+  const expectedCredit = totals.amountsValid ? totals.credit.toString().padStart(12, '0') : undefined;
+  for (const [start, end, code, label, expected] of [
+    [4, 10, 'ACH-FIELD-BATCH-ENTRY-COUNT', 'Entry/Addenda Count', expectedCount],
+    [10, 20, 'ACH-FIELD-BATCH-HASH', 'Entry Hash', expectedHash],
+    [20, 32, 'ACH-FIELD-BATCH-DEBIT', 'Total Debit', expectedDebit],
+    [32, 44, 'ACH-FIELD-BATCH-CREDIT', 'Total Credit', expectedCredit],
   ] as const) {
     const value = control.raw.substring(start, end);
     if (!isDigits(value)) {
-      context.add(control, start, end, code, 'field', `${label} must be numeric`, { actual: value });
+      context.add(control, start, end, code, 'field', `${label} must be numeric`, { actual: value, expected });
     }
   }
   if (control.raw.substring(73, 79).trim().length > 0) {
@@ -587,27 +591,23 @@ function validateBatchControl(batch: AchBatch, totals: BatchTotals, context: Val
   compareHeaderControl(batch.header, control, 79, 87, 79, 87, 'ACH-RELATION-ODFI-ID', 'Originating DFI Identification', context);
   compareHeaderControl(batch.header, control, 87, 94, 87, 94, 'ACH-RELATION-BATCH-NUMBER', 'Batch Number', context);
 
-  const expectedCount = String(totals.count).padStart(6, '0');
   const actualCount = control.raw.substring(4, 10);
   if (isDigits(actualCount) && actualCount !== expectedCount) {
     context.add(control, 4, 10, 'ACH-RELATION-BATCH-ENTRY-COUNT', 'relational', 'Batch Entry/Addenda Count does not match actual records', { expected: expectedCount, actual: actualCount });
   }
   if (totals.hashValid) {
-    const expectedHash = (totals.hash % 10000000000n).toString().padStart(10, '0');
     const actualHash = control.raw.substring(10, 20);
-    if (isDigits(actualHash) && actualHash !== expectedHash) {
+    if (expectedHash && isDigits(actualHash) && actualHash !== expectedHash) {
       context.add(control, 10, 20, 'ACH-RELATION-BATCH-HASH', 'relational', 'Batch Entry Hash does not match the calculated hash', { expected: expectedHash, actual: actualHash });
     }
   }
   if (totals.amountsValid) {
-    const expectedDebit = totals.debit.toString().padStart(12, '0');
-    const expectedCredit = totals.credit.toString().padStart(12, '0');
     const actualDebit = control.raw.substring(20, 32);
     const actualCredit = control.raw.substring(32, 44);
-    if (isDigits(actualDebit) && actualDebit !== expectedDebit) {
+    if (expectedDebit && isDigits(actualDebit) && actualDebit !== expectedDebit) {
       context.add(control, 20, 32, 'ACH-RELATION-BATCH-DEBIT', 'relational', 'Batch debit total does not match the calculated total', { expected: expectedDebit, actual: actualDebit });
     }
-    if (isDigits(actualCredit) && actualCredit !== expectedCredit) {
+    if (expectedCredit && isDigits(actualCredit) && actualCredit !== expectedCredit) {
       context.add(control, 32, 44, 'ACH-RELATION-BATCH-CREDIT', 'relational', 'Batch credit total does not match the calculated total', { expected: expectedCredit, actual: actualCredit });
     }
 
@@ -625,39 +625,55 @@ function validateFileControl(document: AchDocument, batchTotals: BatchTotals[], 
   const control = document.fileControls[0];
   if (!control || control.raw.length !== 94) { return; }
   const expectedBatchCount = String(document.batches.length).padStart(6, '0');
+  const physicalRecords = document.lines.filter(line => line.length > 0).length;
+  const expectedBlockCount = String(Math.ceil(physicalRecords / 10)).padStart(6, '0');
+  const totalCount = batchTotals.reduce((sum, totals) => sum + totals.count, 0);
+  const expectedEntryCount = String(totalCount).padStart(8, '0');
+  const expectedHash = batchTotals.every(totals => totals.hashValid)
+    ? (batchTotals.reduce((sum, totals) => sum + totals.hash, 0n) % 10000000000n).toString().padStart(10, '0')
+    : undefined;
+  const expectedDebit = batchTotals.every(totals => totals.amountsValid)
+    ? batchTotals.reduce((sum, totals) => sum + totals.debit, 0n).toString().padStart(12, '0')
+    : undefined;
+  const expectedCredit = batchTotals.every(totals => totals.amountsValid)
+    ? batchTotals.reduce((sum, totals) => sum + totals.credit, 0n).toString().padStart(12, '0')
+    : undefined;
+
+  for (const [start, end, code, label, expected] of [
+    [1, 7, 'ACH-FIELD-FILE-BATCH-COUNT', 'Batch Count', expectedBatchCount],
+    [7, 13, 'ACH-FIELD-FILE-BLOCK-COUNT', 'Block Count', expectedBlockCount],
+    [13, 21, 'ACH-FIELD-FILE-ENTRY-COUNT', 'Entry/Addenda Count', expectedEntryCount],
+    [21, 31, 'ACH-FIELD-FILE-HASH', 'Entry Hash', expectedHash],
+    [31, 43, 'ACH-FIELD-FILE-DEBIT', 'Total Debit', expectedDebit],
+    [43, 55, 'ACH-FIELD-FILE-CREDIT', 'Total Credit', expectedCredit],
+  ] as const) {
+    const value = control.raw.substring(start, end);
+    if (!isDigits(value)) {
+      context.add(control, start, end, code, 'field', `${label} must be numeric`, { actual: value, expected });
+    }
+  }
+
   const actualBatchCount = control.raw.substring(1, 7);
   if (isDigits(actualBatchCount) && actualBatchCount !== expectedBatchCount) {
     context.add(control, 1, 7, 'ACH-RELATION-FILE-BATCH-COUNT', 'relational', 'File Batch Count does not match actual batches', { expected: expectedBatchCount, actual: actualBatchCount });
   }
-
-  const physicalRecords = document.lines.filter(line => line.length > 0).length;
-  const expectedBlockCount = String(Math.ceil(physicalRecords / 10)).padStart(6, '0');
   const actualBlockCount = control.raw.substring(7, 13);
   if (isDigits(actualBlockCount) && actualBlockCount !== expectedBlockCount) {
     context.add(control, 7, 13, 'ACH-RELATION-FILE-BLOCK-COUNT', 'relational', 'File Block Count does not match physical records', { expected: expectedBlockCount, actual: actualBlockCount });
   }
-
-  const totalCount = batchTotals.reduce((sum, totals) => sum + totals.count, 0);
-  const expectedEntryCount = String(totalCount).padStart(8, '0');
   const actualEntryCount = control.raw.substring(13, 21);
   if (isDigits(actualEntryCount) && actualEntryCount !== expectedEntryCount) {
     context.add(control, 13, 21, 'ACH-RELATION-FILE-ENTRY-COUNT', 'relational', 'File Entry/Addenda Count does not match actual records', { expected: expectedEntryCount, actual: actualEntryCount });
   }
 
-  if (batchTotals.every(totals => totals.hashValid)) {
-    const hash = batchTotals.reduce((sum, totals) => sum + totals.hash, 0n);
-    const expectedHash = (hash % 10000000000n).toString().padStart(10, '0');
+  if (expectedHash) {
     const actualHash = control.raw.substring(21, 31);
     if (isDigits(actualHash) && actualHash !== expectedHash) {
       context.add(control, 21, 31, 'ACH-RELATION-FILE-HASH', 'relational', 'File Entry Hash does not match the calculated hash', { expected: expectedHash, actual: actualHash });
     }
   }
 
-  if (batchTotals.every(totals => totals.amountsValid)) {
-    const debit = batchTotals.reduce((sum, totals) => sum + totals.debit, 0n);
-    const credit = batchTotals.reduce((sum, totals) => sum + totals.credit, 0n);
-    const expectedDebit = debit.toString().padStart(12, '0');
-    const expectedCredit = credit.toString().padStart(12, '0');
+  if (expectedDebit && expectedCredit) {
     const actualDebit = control.raw.substring(31, 43);
     const actualCredit = control.raw.substring(43, 55);
     if (isDigits(actualDebit) && actualDebit !== expectedDebit) {
@@ -684,23 +700,6 @@ function validateFieldsAndRelationships(document: AchDocument, context: Validati
     const totals = calculateBatchTotals(batch, context);
     batchTotals.push(totals);
     validateBatchControl(batch, totals, context);
-  }
-
-  for (const control of document.fileControls) {
-    if (control.raw.length !== 94) { continue; }
-    for (const [start, end, code, label] of [
-      [1, 7, 'ACH-FIELD-FILE-BATCH-COUNT', 'Batch Count'],
-      [7, 13, 'ACH-FIELD-FILE-BLOCK-COUNT', 'Block Count'],
-      [13, 21, 'ACH-FIELD-FILE-ENTRY-COUNT', 'Entry/Addenda Count'],
-      [21, 31, 'ACH-FIELD-FILE-HASH', 'Entry Hash'],
-      [31, 43, 'ACH-FIELD-FILE-DEBIT', 'Total Debit'],
-      [43, 55, 'ACH-FIELD-FILE-CREDIT', 'Total Credit'],
-    ] as const) {
-      const value = control.raw.substring(start, end);
-      if (!isDigits(value)) {
-        context.add(control, start, end, code, 'field', `${label} must be numeric`, { actual: value });
-      }
-    }
   }
 
   validateFileControl(document, batchTotals, context);
