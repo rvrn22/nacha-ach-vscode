@@ -85,13 +85,13 @@ suite('Nacha Parser Validation Test Suite', () => {
         const entry = '622' + '06100010' + '4' + '0007' + pad('', 13) + padNum('5000', 10) + pad('FOREIGN-ACCOUNT-123', 35) + '  ' + '  ' + '1' + '061000100000001';
 
         // 7 mandatory IAT addenda (Types 10-16)
-        const addenda10 = '710' + 'BUS' + padNum('5000', 18) + 'FF' + pad('RECEIVER NAME', 35) + pad('', 18) + '061000100000001';
-        const addenda11 = '711' + pad('ORIGINATOR NAME', 35) + pad('123 MAIN ST', 35) + pad('', 6) + '061000100000001';
-        const addenda12 = '712' + pad('ORIGINATOR CITY', 35) + pad('CAUS90210', 35) + pad('', 6) + '061000100000001';
-        const addenda13 = '713' + pad('ODFI NAME', 35) + pad('12345678US', 35) + pad('', 6) + '061000100000001';
-        const addenda14 = '714' + pad('RDFI NAME', 35) + pad('87654321MX', 35) + pad('', 6) + '061000100000001';
-        const addenda15 = '715' + pad('RECEIVER ID', 35) + pad('456 OAK AVE', 35) + pad('', 6) + '061000100000001';
-        const addenda16 = '716' + pad('RECEIVER CITY', 35) + pad('MEXICO CITY MX 12345', 35) + pad('', 6) + '061000100000001';
+        const addenda10 = '710' + 'BUS' + padNum('5000', 18) + pad('', 22) + pad('RECEIVER NAME', 35) + pad('', 6) + '0000001';
+        const addenda11 = '711' + pad('ORIGINATOR NAME', 35) + pad('123 MAIN ST', 35) + pad('', 14) + '0000001';
+        const addenda12 = '712' + pad('ORIGINATOR CITY*GA\\', 35) + pad('US*90210\\', 35) + pad('', 14) + '0000001';
+        const addenda13 = '713' + pad('ODFI NAME', 35) + '01' + pad('12345678', 34) + 'US ' + pad('', 10) + '0000001';
+        const addenda14 = '714' + pad('RDFI NAME', 35) + '01' + pad('87654321', 34) + 'MX ' + pad('', 10) + '0000001';
+        const addenda15 = '715' + pad('RECEIVER ID', 15) + pad('456 OAK AVE', 35) + pad('', 34) + '0000001';
+        const addenda16 = '716' + pad('RECEIVER CITY*CMX\\', 35) + pad('MX*12345\\', 35) + pad('', 14) + '0000001';
 
         // Batch Control (Count: 1 entry + 7 addenda = 8)
         const batchControl = '8220' + padNum('8', 6) + padNum('6100010', 10) + padNum('0', 12) + padNum('5000', 12) + '1234567890' + pad('', 19) + pad('', 6) + '06100010' + '0000001';

@@ -97,9 +97,16 @@ function buildIatFile(addendaTypes: string[] = ['10', '11', '12', '13', '14', '1
     [1, '22'], [3, '06100010'], [11, '4'], [12, padNumber(declaredCount, 4)],
     [29, '0000005000'], [39, 'FOREIGN-ACCOUNT'], [78, '1'], [79, trace],
   ]);
-  const addenda = addendaTypes.map(type => makeRecord('7', [
-    [1, type], [3, 'IAT INFORMATION'], [87, trace.substring(8)],
-  ]));
+  const fieldsByType: Record<string, FieldValue[]> = {
+    '10': [[1, '10'], [3, 'BUS'], [6, '000000000000005000'], [46, 'FOREIGN RECEIVER'], [87, trace.substring(8)]],
+    '11': [[1, '11'], [3, 'ORIGINATOR NAME'], [38, '123 MAIN STREET'], [87, trace.substring(8)]],
+    '12': [[1, '12'], [3, 'ATLANTA*GA\\'], [38, 'US*30303\\'], [87, trace.substring(8)]],
+    '13': [[1, '13'], [3, 'ORIGINATING BANK'], [38, '01'], [40, '061000104'], [74, 'US '], [87, trace.substring(8)]],
+    '14': [[1, '14'], [3, 'RECEIVING BANK'], [38, '01'], [40, '061000104'], [74, 'US '], [87, trace.substring(8)]],
+    '15': [[1, '15'], [3, 'RECEIVER-ID'], [18, '456 OAK AVENUE'], [87, trace.substring(8)]],
+    '16': [[1, '16'], [3, 'MEXICO CITY*CMX\\'], [38, 'MX*01000\\'], [87, trace.substring(8)]],
+  };
+  const addenda = addendaTypes.map(type => makeRecord('7', fieldsByType[type] ?? [[1, type], [87, trace.substring(8)]]));
   const count = 1 + addenda.length;
   const batchControl = makeRecord('8', [
     [1, '200'], [4, padNumber(count, 6)], [10, '0006100010'],

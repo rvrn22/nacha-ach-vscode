@@ -16,7 +16,9 @@ A professional Visual Studio Code extension for developers and treasury professi
 ### 🌐 Full IAT Support
 - **International Transactions**: Comprehensive support for International ACH Transactions (IAT).
 - **Contextual Parsing**: Switches field definitions automatically when an IAT batch is detected.
-- **Mandatory Addenda**: Validates the presence of the 7 required IAT addenda records (Types 10-16: Name, Address, Bank IDs, etc.).
+- **Complete Addenda Layouts**: Decodes the authoritative fixed-width fields for mandatory types 10–16, optional remittance type 17, and foreign-correspondent-bank type 18.
+- **Mandatory Addenda**: Validates the presence and order of the seven required IAT addenda records, their required fields, reserved columns, and Entry Detail sequence links.
+- **Optional Addenda Rules**: Validates type 17/18 ordering, individual and combined maxima, independent sequence numbers, bank-identification qualifiers, and branch-country formatting.
 
 ### ↩️ Returns and Notifications of Change
 - **Dedicated Addenda Layouts**: Decodes type 99 Return and type 98 Notification of Change records with their actual fixed-width fields instead of treating them as payment addenda.
@@ -93,7 +95,7 @@ A professional Visual Studio Code extension for developers and treasury professi
 ### 📋 Profiles, Reports, and Automation
 - **Named Profiles**: Define institution/operator profiles that extend strict or unblocked validation behavior.
 - **Explained Overrides**: Change or suppress exact rules, categories, or all rules only with a recorded reason.
-- **Versioned Rules**: Reports identify ruleset version `2026.07.7` independently from the extension version.
+- **Versioned Rules**: Reports identify ruleset version `2026.07.8` independently from the extension version.
 - **Redacted Reports**: Export JSON or SARIF without exposing account numbers and individual identifiers.
 - **Headless CLI**: Run the same parser and validator in CI, scripts, and pre-upload workflows.
 - **Text Detection**: High-confidence ACH content in `.txt` files can switch to ACH language mode with one click.

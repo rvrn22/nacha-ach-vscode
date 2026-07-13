@@ -1,12 +1,13 @@
 # ACH Validation Ruleset
 
-Ruleset version: `2026.07.7`
+Ruleset version: `2026.07.8`
 
 The validation ruleset is versioned independently from the VS Code extension package. JSON and SARIF reports include this version so validation results remain reproducible when extension and CLI releases change.
 
 ## Public reference scope
 
 - Nacha ACH Guide for Developers record layouts and common transaction semantics.
+- Nacha Operating Rules Basic Appendices for IAT addenda layouts and field requirements.
 - Federal Reserve Financial Services IAT format guidance.
 - U.S. Treasury Bureau of the Fiscal Service transaction-code definitions.
 

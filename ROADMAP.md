@@ -178,6 +178,17 @@ Status: Completed
 - [x] Document Company Name, cross-file timing, verification completion, and fraud-monitoring boundaries.
 - [x] Add valid, invalid, split-batch, fix, explorer, and report regression coverage.
 
+## Post-roadmap — Complete IAT addenda support
+
+Status: Completed
+
+- [x] Correct the fixed-width definitions for mandatory IAT addenda types 10–16.
+- [x] Add field definitions for optional remittance type 17 and foreign-correspondent-bank type 18.
+- [x] Validate required fields, reserved columns, transaction types, foreign amounts, bank qualifiers, and branch-country formatting.
+- [x] Validate type 17/18 ordering, per-type and combined maxima, and independent sequence numbers.
+- [x] Relate every IAT addenda record to the last seven digits of its Entry Detail trace.
+- [x] Replace simplified legacy IAT fixtures and add focused valid/invalid regression coverage.
+
 ## Test strategy
 
 - [ ] Golden valid/invalid fixtures for every supported SEC code.
@@ -187,7 +198,7 @@ Status: Completed
   - [x] Prenotes.
   - [x] Zero-dollar entries.
   - [x] Balanced/unbalanced file analysis.
-- [ ] IAT addenda presence, order, count, and trace relationships.
+- [x] IAT addenda presence, order, count, field content, sequences, and trace relationships.
 - [ ] CRLF/LF, tabs, non-ASCII characters, short/long records, and padding edge cases.
 - [ ] Property-style mutations of counts, hashes, totals, routing digits, and record order.
 - [x] Code-action tests that assert exact previewed edits.

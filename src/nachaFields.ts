@@ -51,65 +51,89 @@ export const iatRecordFields: Record<string, FieldDefinition[]> = {
   ]
 };
 
+// Public layout reference: Nacha Operating Rules Basic Appendices,
+// Appendix Three, IAT Addenda Records (types 10-18).
 export const addendaIATFields: Record<string, FieldDefinition[]> = {
-  '10': [ // IAT Batch Header Addenda
+  '10': [
     { start: 0, end: 1, name: 'Record Type Code', description: '7 - Addenda Record' },
-    { start: 1, end: 3, name: 'Addenda Type Code', description: '10 - IAT Batch Header Addenda' },
-    { start: 3, end: 6, name: 'Transaction Type Code', description: 'ANN=Annuity, BUS=Business, DEP=Deposit, etc.' },
-    { start: 6, end: 24, name: 'Foreign Payment Amount', description: 'Amount in foreign currency' },
-    { start: 24, end: 26, name: 'Foreign Exchange Indicator', description: 'FV, VF, or FF' },
-    { start: 26, end: 61, name: 'Receiver Name', description: 'Name of the receiver' },
-    { start: 61, end: 79, name: 'Reserved', description: 'Blank/spaces' },
-    { start: 79, end: 94, name: 'Trace Number', description: 'Links to entry detail record' }
+    { start: 1, end: 3, name: 'Addenda Type Code', description: '10 - First mandatory IAT Addenda' },
+    { start: 3, end: 6, name: 'Transaction Type Code', description: 'Reason for payment or permitted secondary SEC code' },
+    { start: 6, end: 24, name: 'Foreign Payment Amount', description: '18-digit foreign payment amount' },
+    { start: 24, end: 46, name: 'Foreign Trace Number', description: 'Optional trace assigned in the foreign payment system' },
+    { start: 46, end: 81, name: 'Receiving Company Name / Individual Name', description: 'Name identifying the Receiver' },
+    { start: 81, end: 87, name: 'Reserved', description: 'Blank/spaces' },
+    { start: 87, end: 94, name: 'Entry Detail Sequence Number', description: 'Last 7 digits of the related Entry Detail trace number' },
   ],
-  '11': [ // Originator Addenda
+  '11': [
     { start: 0, end: 1, name: 'Record Type Code', description: '7' },
-    { start: 1, end: 3, name: 'Addenda Type Code', description: '11 - Originator Addenda' },
+    { start: 1, end: 3, name: 'Addenda Type Code', description: '11 - Originator Name and Address' },
     { start: 3, end: 38, name: 'Originator Name', description: 'Full name of the originator' },
     { start: 38, end: 73, name: 'Originator Street Address', description: 'Originator\'s street address' },
-    { start: 73, end: 79, name: 'Reserved', description: 'Blank/spaces' },
-    { start: 79, end: 94, name: 'Trace Number', description: 'Links to entry detail record' }
+    { start: 73, end: 87, name: 'Reserved', description: 'Blank/spaces' },
+    { start: 87, end: 94, name: 'Entry Detail Sequence Number', description: 'Last 7 digits of the related Entry Detail trace number' },
   ],
-  '12': [ // Originator Address Addenda
+  '12': [
     { start: 0, end: 1, name: 'Record Type Code', description: '7' },
     { start: 1, end: 3, name: 'Addenda Type Code', description: '12 - Originator Address Addenda' },
-    { start: 3, end: 38, name: 'Originator City', description: 'City name' },
-    { start: 38, end: 73, name: 'Originator State/Country/Postal', description: 'State, Country Code, and Postal Code' },
-    { start: 73, end: 79, name: 'Reserved', description: 'Blank/spaces' },
-    { start: 79, end: 94, name: 'Trace Number', description: 'Links to entry detail record' }
+    { start: 3, end: 38, name: 'Originator City and State / Province', description: 'Delimited originator city and state/province' },
+    { start: 38, end: 73, name: 'Originator Country and Postal Code', description: 'Delimited ISO country and postal code' },
+    { start: 73, end: 87, name: 'Reserved', description: 'Blank/spaces' },
+    { start: 87, end: 94, name: 'Entry Detail Sequence Number', description: 'Last 7 digits of the related Entry Detail trace number' },
   ],
-  '13': [ // Originating DFI Addenda
+  '13': [
     { start: 0, end: 1, name: 'Record Type Code', description: '7' },
     { start: 1, end: 3, name: 'Addenda Type Code', description: '13 - Originating DFI Addenda' },
-    { start: 3, end: 38, name: 'ODFI Name', description: 'Name of originating bank' },
-    { start: 38, end: 73, name: 'ODFI ID / Country Code', description: 'Bank ID and country code' },
-    { start: 73, end: 79, name: 'Reserved', description: 'Blank/spaces' },
-    { start: 79, end: 94, name: 'Trace Number', description: 'Links to entry detail record' }
+    { start: 3, end: 38, name: 'Originating DFI Name', description: 'Name of the originating financial institution' },
+    { start: 38, end: 40, name: 'Originating DFI Identification Number Qualifier', description: '01=National Clearing, 02=SWIFT BIC, 03=IBAN' },
+    { start: 40, end: 74, name: 'Originating DFI Identification', description: 'Identifier formatted according to the qualifier' },
+    { start: 74, end: 77, name: 'Originating DFI Branch Country Code', description: '2-character ISO country code followed by a space' },
+    { start: 77, end: 87, name: 'Reserved', description: 'Blank/spaces' },
+    { start: 87, end: 94, name: 'Entry Detail Sequence Number', description: 'Last 7 digits of the related Entry Detail trace number' },
   ],
-  '14': [ // Receiving DFI Addenda
+  '14': [
     { start: 0, end: 1, name: 'Record Type Code', description: '7' },
     { start: 1, end: 3, name: 'Addenda Type Code', description: '14 - Receiving DFI Addenda' },
-    { start: 3, end: 38, name: 'RDFI Name', description: 'Name of receiving bank' },
-    { start: 38, end: 73, name: 'RDFI ID / Country Code', description: 'Bank ID and country code' },
-    { start: 73, end: 79, name: 'Reserved', description: 'Blank/spaces' },
-    { start: 79, end: 94, name: 'Trace Number', description: 'Links to entry detail record' }
+    { start: 3, end: 38, name: 'Receiving DFI Name', description: 'Name of the receiving financial institution' },
+    { start: 38, end: 40, name: 'Receiving DFI Identification Number Qualifier', description: '01=National Clearing, 02=SWIFT BIC, 03=IBAN' },
+    { start: 40, end: 74, name: 'Receiving DFI Identification', description: 'Identifier formatted according to the qualifier' },
+    { start: 74, end: 77, name: 'Receiving DFI Branch Country Code', description: '2-character ISO country code followed by a space' },
+    { start: 77, end: 87, name: 'Reserved', description: 'Blank/spaces' },
+    { start: 87, end: 94, name: 'Entry Detail Sequence Number', description: 'Last 7 digits of the related Entry Detail trace number' },
   ],
-  '15': [ // Receiver Addenda
+  '15': [
     { start: 0, end: 1, name: 'Record Type Code', description: '7' },
     { start: 1, end: 3, name: 'Addenda Type Code', description: '15 - Receiver Addenda' },
-    { start: 3, end: 38, name: 'Receiver ID Number', description: 'Tax ID or individual ID' },
-    { start: 38, end: 73, name: 'Receiver Street Address', description: 'Receiver\'s street address' },
-    { start: 73, end: 79, name: 'Reserved', description: 'Blank/spaces' },
-    { start: 79, end: 94, name: 'Trace Number', description: 'Links to entry detail record' }
+    { start: 3, end: 18, name: 'Receiver Identification Number', description: 'Optional receiver identifier' },
+    { start: 18, end: 53, name: 'Receiver Street Address', description: 'Receiver\'s street address' },
+    { start: 53, end: 87, name: 'Reserved', description: 'Blank/spaces' },
+    { start: 87, end: 94, name: 'Entry Detail Sequence Number', description: 'Last 7 digits of the related Entry Detail trace number' },
   ],
-  '16': [ // Receiver Address Addenda
+  '16': [
     { start: 0, end: 1, name: 'Record Type Code', description: '7' },
     { start: 1, end: 3, name: 'Addenda Type Code', description: '16 - Receiver Address Addenda' },
-    { start: 3, end: 38, name: 'Receiver City', description: 'City name' },
-    { start: 38, end: 73, name: 'Receiver State/Country/Postal', description: 'State, Country Code, and Postal Code' },
-    { start: 73, end: 79, name: 'Reserved', description: 'Blank/spaces' },
-    { start: 79, end: 94, name: 'Trace Number', description: 'Links to entry detail record' }
-  ]
+    { start: 3, end: 38, name: 'Receiver City and State / Province', description: 'Delimited receiver city and state/province' },
+    { start: 38, end: 73, name: 'Receiver Country and Postal Code', description: 'Delimited ISO country and postal code' },
+    { start: 73, end: 87, name: 'Reserved', description: 'Blank/spaces' },
+    { start: 87, end: 94, name: 'Entry Detail Sequence Number', description: 'Last 7 digits of the related Entry Detail trace number' },
+  ],
+  '17': [
+    { start: 0, end: 1, name: 'Record Type Code', description: '7' },
+    { start: 1, end: 3, name: 'Addenda Type Code', description: '17 - IAT Remittance Information' },
+    { start: 3, end: 83, name: 'Payment Related Information', description: 'Optional remittance or secondary-SEC information' },
+    { start: 83, end: 87, name: 'Addenda Sequence Number', description: 'Sequence of type 17 records beginning with 0001' },
+    { start: 87, end: 94, name: 'Entry Detail Sequence Number', description: 'Last 7 digits of the related Entry Detail trace number' },
+  ],
+  '18': [
+    { start: 0, end: 1, name: 'Record Type Code', description: '7' },
+    { start: 1, end: 3, name: 'Addenda Type Code', description: '18 - Foreign Correspondent Bank Information' },
+    { start: 3, end: 38, name: 'Foreign Correspondent Bank Name', description: 'Name of the foreign correspondent bank' },
+    { start: 38, end: 40, name: 'Foreign Correspondent Bank Identification Number Qualifier', description: '01=National Clearing, 02=SWIFT BIC, 03=IBAN' },
+    { start: 40, end: 74, name: 'Foreign Correspondent Bank Identification', description: 'Identifier formatted according to the qualifier' },
+    { start: 74, end: 77, name: 'Foreign Correspondent Bank Branch Country Code', description: '2-character ISO country code followed by a space' },
+    { start: 77, end: 83, name: 'Reserved', description: 'Blank/spaces' },
+    { start: 83, end: 87, name: 'Addenda Sequence Number', description: 'Sequence of type 18 records beginning with 0001' },
+    { start: 87, end: 94, name: 'Entry Detail Sequence Number', description: 'Last 7 digits of the related Entry Detail trace number' },
+  ],
 };
 
 // Public layout reference: 2025 Nacha Operating Rules, Basic Edition,

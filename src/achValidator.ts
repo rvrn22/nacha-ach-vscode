@@ -622,6 +622,91 @@ function validateSpecialAddenda(addenda: AchRecord, detail: AchRecord, context: 
   }
 }
 
+function validateIatAddendaContent(entry: AchEntry, returnOrNoc: boolean, context: ValidationContext): void {
+  const optional = entry.addenda.filter(addenda => ['17', '18'].includes(addenda.raw.substring(1, 3)));
+  const type17 = optional.filter(addenda => addenda.raw.substring(1, 3) === '17');
+  const type18 = optional.filter(addenda => addenda.raw.substring(1, 3) === '18');
+  if (!returnOrNoc) {
+    if (type17.length > 2) {
+      context.add(type17[2], 1, 3, 'ACH-IAT-REMITTANCE-MAXIMUM', 'sec', 'IAT entries permit at most two type 17 remittance addenda records', { expected: '0-2', actual: String(type17.length) });
+    }
+    if (type18.length > 5) {
+      context.add(type18[5], 1, 3, 'ACH-IAT-CORRESPONDENT-MAXIMUM', 'sec', 'IAT entries permit at most five type 18 correspondent-bank addenda records', { expected: '0-5', actual: String(type18.length) });
+    }
+    if (optional.length > 5) {
+      context.add(optional[5], 1, 3, 'ACH-IAT-OPTIONAL-ADDENDA-MAXIMUM', 'sec', 'IAT entries permit at most five optional type 17/18 addenda records in total', { expected: '0-5', actual: String(optional.length) });
+    }
+    let seenType18 = false;
+    for (const addenda of optional) {
+      const type = addenda.raw.substring(1, 3);
+      if (type === '18') { seenType18 = true; }
+      if (type === '17' && seenType18) {
+        context.add(addenda, 1, 3, 'ACH-IAT-OPTIONAL-ADDENDA-ORDER', 'sec', 'Type 17 remittance addenda records must precede type 18 correspondent-bank addenda records');
+      }
+    }
+  }
+
+  const sequenceByType = new Map<string, number>();
+  const reservedRanges: Record<string, [number, number]> = {
+    '10': [81, 87], '11': [73, 87], '12': [73, 87], '13': [77, 87],
+    '14': [77, 87], '15': [53, 87], '16': [73, 87], '18': [77, 83],
+  };
+  const requiredRanges: Record<string, Array<[number, number, string]>> = {
+    '10': [[3, 6, 'Transaction Type Code'], [6, 24, 'Foreign Payment Amount'], [46, 81, 'Receiving Company Name / Individual Name']],
+    '11': [[3, 38, 'Originator Name'], [38, 73, 'Originator Street Address']],
+    '12': [[3, 38, 'Originator City and State / Province'], [38, 73, 'Originator Country and Postal Code']],
+    '13': [[3, 38, 'Originating DFI Name'], [38, 40, 'Originating DFI Identification Number Qualifier'], [40, 74, 'Originating DFI Identification'], [74, 77, 'Originating DFI Branch Country Code']],
+    '14': [[3, 38, 'Receiving DFI Name'], [38, 40, 'Receiving DFI Identification Number Qualifier'], [40, 74, 'Receiving DFI Identification'], [74, 77, 'Receiving DFI Branch Country Code']],
+    '15': [[18, 53, 'Receiver Street Address']],
+    '16': [[3, 38, 'Receiver City and State / Province'], [38, 73, 'Receiver Country and Postal Code']],
+    '18': [[3, 38, 'Foreign Correspondent Bank Name'], [38, 40, 'Foreign Correspondent Bank Identification Number Qualifier'], [40, 74, 'Foreign Correspondent Bank Identification'], [74, 77, 'Foreign Correspondent Bank Branch Country Code']],
+  };
+
+  for (const addenda of entry.addenda) {
+    if (addenda.raw.length !== 94) { continue; }
+    const type = addenda.raw.substring(1, 3);
+    if (!/^1[0-8]$/.test(type)) { continue; }
+    const reserved = reservedRanges[type];
+    if (reserved && addenda.raw.substring(reserved[0], reserved[1]).trim().length > 0) {
+      context.add(addenda, reserved[0], reserved[1], 'ACH-IAT-RESERVED', 'field', `IAT addenda type ${type} reserved field must be blank`, { expected: 'blank', actual: addenda.raw.substring(reserved[0], reserved[1]) });
+    }
+    for (const [start, end, label] of requiredRanges[type] ?? []) {
+      if (addenda.raw.substring(start, end).trim().length === 0) {
+        context.add(addenda, start, end, 'ACH-IAT-MANDATORY-FIELD', 'field', `${label} is required in IAT addenda type ${type}`);
+      }
+    }
+    if (type === '10') {
+      const transactionType = addenda.raw.substring(3, 6);
+      if (!/^[A-Z0-9]{3}$/.test(transactionType)) {
+        context.add(addenda, 3, 6, 'ACH-IAT-TRANSACTION-TYPE', 'field', 'IAT Transaction Type Code must contain three uppercase letters or digits', { actual: transactionType });
+      }
+      const foreignAmount = addenda.raw.substring(6, 24);
+      if (!/^\d{18}$/.test(foreignAmount)) {
+        context.add(addenda, 6, 24, 'ACH-IAT-FOREIGN-AMOUNT', 'field', 'IAT Foreign Payment Amount must contain 18 digits', { actual: foreignAmount });
+      }
+    }
+    if (['13', '14', '18'].includes(type)) {
+      const qualifier = addenda.raw.substring(38, 40);
+      if (!['01', '02', '03'].includes(qualifier)) {
+        context.add(addenda, 38, 40, 'ACH-IAT-DFI-QUALIFIER', 'field', 'IAT financial-institution identification qualifier must be 01, 02, or 03', { expected: '01, 02, or 03', actual: qualifier });
+      }
+      const country = addenda.raw.substring(74, 77);
+      if (!/^[A-Z]{2} $/.test(country)) {
+        context.add(addenda, 74, 77, 'ACH-IAT-BRANCH-COUNTRY', 'field', 'IAT branch country code must contain two uppercase ISO characters followed by a space', { expected: 'AA + space', actual: country });
+      }
+    }
+    if (['17', '18'].includes(type)) {
+      const sequence = (sequenceByType.get(type) ?? 0) + 1;
+      sequenceByType.set(type, sequence);
+      const expected = String(sequence).padStart(4, '0');
+      const actual = addenda.raw.substring(83, 87);
+      if (actual !== expected) {
+        context.add(addenda, 83, 87, 'ACH-IAT-ADDENDA-SEQUENCE', 'relational', `IAT addenda type ${type} sequence must be consecutive beginning with 0001`, { expected, actual });
+      }
+    }
+  }
+}
+
 function validateEntryAddenda(entry: AchEntry, batch: AchBatch, rule: TransactionCodeRule | undefined, context: ValidationContext): void {
   const detail = entry.detail;
   const actualCount = entry.addenda.length;
@@ -702,6 +787,7 @@ function validateEntryAddenda(entry: AchEntry, batch: AchBatch, rule: Transactio
         }
       }
     }
+    validateIatAddendaContent(entry, returnOrNoc, context);
   }
 
   const traceSequence = detail.raw.substring(87, 94);
