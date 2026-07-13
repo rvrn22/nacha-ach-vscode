@@ -142,6 +142,24 @@ function isValidAchTime(value: string): boolean {
   return hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59;
 }
 
+function isValidMonthDay(value: string): boolean {
+  if (!/^\d{4}$/.test(value)) { return false; }
+  const month = Number(value.substring(0, 2));
+  const day = Number(value.substring(2, 4));
+  const date = new Date(Date.UTC(2000, month - 1, day));
+  return date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
+
+function isValidAchTimeWithSeconds(value: string): boolean {
+  if (!/^\d{6}$/.test(value)) { return false; }
+  const hour = Number(value.substring(0, 2));
+  const minute = Number(value.substring(2, 4));
+  const second = Number(value.substring(4, 6));
+  return hour <= 23 && minute <= 59 && second <= 59;
+}
+
+const cardTransactionTypeCodes = new Set(['01', '02', '03', '11', '12', '13', '21', '99']);
+
 function calculateCheckDigit(routing8: string): number {
   const weights = [3, 7, 1, 3, 7, 1, 3, 7];
   let sum = 0;
@@ -519,7 +537,7 @@ function validateSecEntryFields(
 
   const record = entry.detail;
   const secCode = batch.secCode;
-  const standardAccountSecs = ['ACK', 'ARC', 'ATX', 'BOC', 'CCD', 'CIE', 'CTX', 'DNE', 'ENR', 'PPD', 'RCK', 'TEL', 'WEB'];
+  const standardAccountSecs = ['ACK', 'ARC', 'ATX', 'BOC', 'CCD', 'CIE', 'CTX', 'DNE', 'ENR', 'MTE', 'POS', 'PPD', 'RCK', 'SHR', 'TEL', 'WEB'];
   if (standardAccountSecs.includes(secCode) && record.raw.substring(12, 29).trim().length === 0) {
     context.add(record, 12, 29, 'ACH-SEC-ACCOUNT-REQUIRED', 'sec', `DFI Account Number is required for ${secCode} entries`);
   }
@@ -588,6 +606,44 @@ function validateSecEntryFields(
     }
     if (record.raw.substring(74, 76).trim().length > 0) {
       context.add(record, 74, 76, 'ACH-ENR-RESERVED', 'field', 'ENR Entry Detail reserved field must be blank');
+    }
+  }
+
+  if (secCode === 'MTE') {
+    if (record.raw.substring(39, 54).trim().length === 0) {
+      context.add(record, 39, 54, 'ACH-MTE-INDIVIDUAL-NAME-REQUIRED', 'sec', 'Individual Name is required for an MTE entry');
+    }
+    if (record.raw.substring(54, 76).trim().length === 0) {
+      context.add(record, 54, 76, 'ACH-MTE-INDIVIDUAL-ID-REQUIRED', 'sec', 'Individual Identification Number is required for an MTE entry');
+    }
+  }
+
+  if (secCode === 'POS' && record.raw.substring(54, 76).trim().length === 0) {
+    context.add(record, 54, 76, 'ACH-POS-INDIVIDUAL-NAME-REQUIRED', 'sec', 'Individual Name is required for a POS entry');
+  }
+
+  if (['POS', 'SHR'].includes(secCode)) {
+    const cardType = record.raw.substring(76, 78);
+    if (!cardTransactionTypeCodes.has(cardType)) {
+      context.add(record, 76, 78, 'ACH-CARD-TRANSACTION-TYPE', 'sec', 'Card Transaction Type Code is not a recognized POS/SHR value', {
+        expected: [...cardTransactionTypeCodes].join(', '),
+        actual: cardType,
+      });
+    }
+  }
+
+  if (secCode === 'SHR') {
+    const expiration = record.raw.substring(39, 43);
+    if (!/^\d{4}$/.test(expiration) || Number(expiration.substring(0, 2)) < 1 || Number(expiration.substring(0, 2)) > 12) {
+      context.add(record, 39, 43, 'ACH-SHR-CARD-EXPIRATION', 'sec', 'SHR Card Expiration Date must use a valid MMYY value', { expected: 'MMYY', actual: expiration });
+    }
+    const documentReference = record.raw.substring(43, 54);
+    if (!/^\d{11}$/.test(documentReference)) {
+      context.add(record, 43, 54, 'ACH-SHR-DOCUMENT-REFERENCE', 'sec', 'SHR Document Reference Number must contain 11 digits', { expected: '11 digits', actual: documentReference });
+    }
+    const cardAccount = record.raw.substring(54, 76);
+    if (!/^\d{22}$/.test(cardAccount)) {
+      context.add(record, 54, 76, 'ACH-SHR-CARD-ACCOUNT', 'sec', 'SHR Individual Card Account Number must contain 22 digits', { expected: '22 digits', actual: cardAccount });
     }
   }
 
@@ -860,6 +916,39 @@ function validateIatAddendaContent(entry: AchEntry, returnOrNoc: boolean, contex
   }
 }
 
+function validateTerminalAddenda(addenda: AchRecord, secCode: string, context: ValidationContext): void {
+  const requiredFields: Array<[start: number, end: number, label: string]> = [
+    [13, 19, 'Terminal Identification Code'],
+    [19, 25, 'Transaction Serial Number'],
+    [35, 62, 'Terminal Location'],
+    [62, 77, 'Terminal City'],
+    [77, 79, 'Terminal State'],
+  ];
+  if (secCode === 'MTE') {
+    requiredFields.unshift([3, 10, 'Transaction Description']);
+  }
+  for (const [start, end, label] of requiredFields) {
+    if (addenda.raw.substring(start, end).trim().length === 0) {
+      context.add(addenda, start, end, 'ACH-TERMINAL-ADDENDA-REQUIRED', 'sec', `${label} is required in a ${secCode} type 02 addenda record`);
+    }
+  }
+
+  const transactionDate = addenda.raw.substring(25, 29);
+  if (!isValidMonthDay(transactionDate)) {
+    context.add(addenda, 25, 29, 'ACH-TERMINAL-TRANSACTION-DATE', 'sec', 'Terminal Transaction Date must be a real MMDD calendar date', { expected: 'valid MMDD', actual: transactionDate });
+  }
+  if (secCode === 'MTE') {
+    const transactionTime = addenda.raw.substring(29, 35);
+    if (!isValidAchTimeWithSeconds(transactionTime)) {
+      context.add(addenda, 29, 35, 'ACH-MTE-TRANSACTION-TIME', 'sec', 'MTE Transaction Time must be a valid HHMMSS time', { expected: '000000-235959', actual: transactionTime });
+    }
+  }
+  const trace = addenda.raw.substring(79, 94);
+  if (!/^\d{15}$/.test(trace)) {
+    context.add(addenda, 79, 94, 'ACH-TERMINAL-ADDENDA-TRACE-NUMERIC', 'field', 'Terminal addenda Trace Number must contain 15 digits', { expected: '15 digits', actual: trace });
+  }
+}
+
 function validateEntryAddenda(entry: AchEntry, batch: AchBatch, rule: TransactionCodeRule | undefined, context: ValidationContext): void {
   const detail = entry.detail;
   const actualCount = entry.addenda.length;
@@ -919,6 +1008,17 @@ function validateEntryAddenda(entry: AchEntry, batch: AchBatch, rule: Transactio
     });
   }
 
+  if (['MTE', 'POS', 'SHR'].includes(batch.secCode)
+    && rule?.kind !== 'return'
+    && !isPrenoteTransaction(rule, batch.secCode)
+    && entry.addenda.filter(addenda => addenda.raw.substring(1, 3) === '02').length !== 1) {
+    const terminalAddendaCount = entry.addenda.filter(addenda => addenda.raw.substring(1, 3) === '02').length;
+    context.add(detail, 78, 79, 'ACH-TERMINAL-ADDENDA-REQUIRED', 'sec', `${batch.secCode} live entries require exactly one type 02 addenda record`, {
+      expected: 'one type 02 addenda',
+      actual: `${terminalAddendaCount} type 02 addenda`,
+    });
+  }
+
   if (batch.secCode === 'IAT') {
     const declaredRaw = detail.raw.substring(12, 16);
     const declared = isDigits(declaredRaw) ? Number(declaredRaw) : undefined;
@@ -965,6 +1065,17 @@ function validateEntryAddenda(entry: AchEntry, batch: AchBatch, rule: Transactio
     }
     if (['98', '99'].includes(addendaType)) {
       validateSpecialAddenda(addenda, detail, context);
+    } else if (addendaType === '02' && ['MTE', 'POS', 'SHR'].includes(batch.secCode)) {
+      validateTerminalAddenda(addenda, batch.secCode, context);
+      const addendaTrace = addenda.raw.substring(79, 94);
+      const detailTrace = detail.raw.substring(79, 94);
+      if (addendaTrace !== detailTrace) {
+        context.add(addenda, 79, 94, 'ACH-RELATION-TERMINAL-ADDENDA-TRACE', 'relational', 'Terminal addenda Trace Number must match the complete related Entry Detail Trace Number', {
+          expected: detailTrace,
+          actual: addendaTrace,
+          related: [related(detail, 79, 94, 'Related Entry Detail trace number')],
+        });
+      }
     } else {
       const entrySequence = addenda.raw.substring(87, 94);
       if (entrySequence !== traceSequence) {

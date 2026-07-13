@@ -99,7 +99,7 @@ export const knownSecCodes = new Set([
 
 const consumerAccountSecCodes = new Set(['ARC', 'BOC', 'CIE', 'MTE', 'POP', 'POS', 'PPD', 'RCK', 'SHR', 'TEL', 'WEB']);
 const zeroDollarSecCodes = new Set(['CCD', 'CTX', 'IAT']);
-const debitOnlySecCodes = new Set(['ARC', 'BOC', 'POP', 'POS', 'RCK', 'TEL']);
+const debitOnlySecCodes = new Set(['ARC', 'BOC', 'POP', 'POS', 'RCK', 'SHR', 'TEL']);
 const creditOnlySecCodes = new Set(['ACK', 'ATX', 'CIE', 'DNE', 'ENR']);
 const type05AddendaSecCodes = new Set(['ACK', 'ATX', 'CCD', 'CIE', 'CTX', 'DNE', 'ENR', 'PPD', 'TRX', 'WEB']);
 const type02AddendaSecCodes = new Set(['MTE', 'POS', 'SHR']);

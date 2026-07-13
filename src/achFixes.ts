@@ -50,6 +50,7 @@ const directFixTitles: Record<string, string> = {
   'ACH-RELATION-ADDENDA-SEQUENCE': 'Correct Addenda Sequence Number',
   'ACH-RELATION-ADDENDA-ENTRY-SEQUENCE': 'Synchronize addenda Entry Detail Sequence Number',
   'ACH-RELATION-ADDENDA-TRACE': 'Synchronize Return/NOC Addenda Trace Number',
+  'ACH-RELATION-TERMINAL-ADDENDA-TRACE': 'Synchronize terminal addenda Trace Number',
   'ACH-IAT-ADDENDA-COUNT': 'Recalculate IAT addenda count',
   'ACH-ATX-ADDENDA-COUNT': 'Recalculate ATX addenda count',
   'ACH-ENR-ADDENDA-COUNT': 'Recalculate ENR addenda count',
@@ -84,6 +85,7 @@ const derivedCodes = new Set([
   'ACH-RELATION-ADDENDA-SEQUENCE',
   'ACH-RELATION-ADDENDA-ENTRY-SEQUENCE',
   'ACH-RELATION-ADDENDA-TRACE',
+  'ACH-RELATION-TERMINAL-ADDENDA-TRACE',
   'ACH-IAT-ADDENDA-COUNT',
   'ACH-ATX-ADDENDA-COUNT',
   'ACH-ENR-ADDENDA-COUNT',
@@ -263,12 +265,20 @@ export function buildSequenceRenumberEdits(document: AchDocument): AchTextEdit[]
       addReplacement(edits, entry.detail, 79, 94, `${odfi}${sequence}`, 'Renumber Trace Number');
       for (let addendaIndex = 0; addendaIndex < entry.addenda.length; addendaIndex++) {
         const addenda = entry.addenda[addendaIndex];
-        if (['98', '99'].includes(addenda.raw.substring(1, 3))) {
-          addReplacement(edits, addenda, 79, 94, `${odfi}${sequence}`, 'Synchronize Return/NOC addenda trace number');
+        const addendaType = addenda.raw.substring(1, 3);
+        if (['02', '98', '99'].includes(addendaType)) {
+          addReplacement(
+            edits,
+            addenda,
+            79,
+            94,
+            `${odfi}${sequence}`,
+            addendaType === '02' ? 'Synchronize terminal addenda trace number' : 'Synchronize Return/NOC addenda trace number',
+          );
         } else {
           addReplacement(edits, addenda, 87, 94, sequence, 'Synchronize addenda entry sequence');
         }
-        if (addenda.raw.substring(1, 3) === '05') {
+        if (addendaType === '05') {
           addReplacement(edits, addenda, 83, 87, String(addendaIndex + 1).padStart(4, '0'), 'Renumber Addenda Sequence');
         }
       }

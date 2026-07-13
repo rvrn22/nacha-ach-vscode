@@ -36,6 +36,17 @@ const secDescriptions: Record<string, string> = {
   WEB: 'Internet-Initiated/Mobile Entry',
 };
 
+const cardTransactionTypeDescriptions: Record<string, string> = {
+  '01': 'Purchase of goods or services',
+  '02': 'Cash',
+  '03': 'Return reversal',
+  '11': 'Purchase reversal',
+  '12': 'Cash reversal',
+  '13': 'Return',
+  '21': 'Adjustment',
+  '99': 'Miscellaneous transaction',
+};
+
 const sensitiveFieldPattern = /(?:account number|check serial|company identification|originator identification|individual identification|receiver id|identification number|foreign receiver)/i;
 
 export function isSensitiveAchField(fieldName: string): boolean {
@@ -124,6 +135,19 @@ export function decodeAchField(record: AchRecord, field: AchField, maskSensitive
           ? 'Standing Authorization'
           : 'Originator-defined';
     return { display: `${value} — ${description}`, raw, masked: false };
+  }
+  if (field.name === 'Card Transaction Type Code') {
+    const description = cardTransactionTypeDescriptions[value];
+    return { display: description ? `${value} — ${description}` : value, raw, masked: false };
+  }
+  if (field.name === 'Transaction Date' && /^\d{4}$/.test(value)) {
+    return { display: `${value.substring(0, 2)}-${value.substring(2, 4)}`, raw, masked: false };
+  }
+  if (field.name === 'Transaction Time' && /^\d{6}$/.test(value)) {
+    return { display: `${value.substring(0, 2)}:${value.substring(2, 4)}:${value.substring(4, 6)}`, raw, masked: false };
+  }
+  if (field.name === 'Card Expiration Date' && /^\d{4}$/.test(value)) {
+    return { display: `${value.substring(0, 2)}/${value.substring(2, 4)}`, raw, masked: false };
   }
   if (field.name === 'Number of Addenda Records' && /^\d+$/.test(value)) {
     return { display: BigInt(value).toString(), raw, masked: false };

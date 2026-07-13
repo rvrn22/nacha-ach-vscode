@@ -39,6 +39,13 @@ A professional Visual Studio Code extension for developers and treasury professi
 - **Non-Monetary Notices**: Enforces transaction codes `23`/`33`, zero amounts, and mandatory type-`05` addenda for DNE and ENR entries.
 - **Addenda Controls**: Enforces CIE/DNE single-addenda limits, ENR's 9,999-record maximum, nonblank DNE/ENR convention data, and safe ENR count repair.
 
+### 🏧 MTE/POS/SHR Terminal Entries
+- **Terminal Layouts**: Decodes each Entry Detail format and the two variants of type-`02` terminal addenda with their exact field boundaries.
+- **Terminal Validation**: Checks required terminal identifiers, serials, locations, cities, states, transaction dates, and MTE transaction times.
+- **Card Semantics**: Decodes and validates POS/SHR card transaction types plus SHR expiration, document-reference, card-account, and debit-only requirements.
+- **Prenote Awareness**: Requires one type-`02` addenda for live terminal entries while allowing MTE/POS/SHR prenotes without addenda.
+- **Complete Trace Handling**: Navigates and safely synchronizes the full 15-digit terminal addenda trace during fixes and explicit renumbering.
+
 ### 🌐 Full IAT Support
 - **International Transactions**: Comprehensive support for International ACH Transactions (IAT).
 - **Contextual Parsing**: Switches field definitions automatically when an IAT batch is detected.

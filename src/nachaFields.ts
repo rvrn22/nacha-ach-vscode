@@ -221,6 +221,35 @@ export const iatReturnAndNocAddendaFields: Record<string, FieldDefinition[]> = {
   ],
 };
 
+const terminalAddendaCommonFields: FieldDefinition[] = [
+  { start: 0, end: 1, name: 'Record Type Code', description: '7 - Addenda Record' },
+  { start: 1, end: 3, name: 'Addenda Type Code', description: '02 - Terminal information addenda' },
+  { start: 3, end: 10, name: 'Reference Information #1', description: 'Optional card-processor reference information' },
+  { start: 10, end: 13, name: 'Reference Information #2', description: 'Optional card-processor reference information' },
+  { start: 13, end: 19, name: 'Terminal Identification Code', description: 'Identifier of the terminal where the transaction occurred' },
+  { start: 19, end: 25, name: 'Transaction Serial Number', description: 'Terminal-assigned transaction serial number' },
+  { start: 25, end: 29, name: 'Transaction Date', description: 'MMDD date on which the terminal transaction occurred' },
+  { start: 29, end: 35, name: 'Authorization Code or Card Expiration Date', description: 'Optional authorization code or card-expiration reference' },
+  { start: 35, end: 62, name: 'Terminal Location', description: 'Name or location of the terminal owner' },
+  { start: 62, end: 77, name: 'Terminal City', description: 'City where the terminal is located' },
+  { start: 77, end: 79, name: 'Terminal State', description: 'State or location code for the terminal' },
+  { start: 79, end: 94, name: 'Trace Number', description: 'Complete Trace Number of the related Entry Detail Record' },
+];
+
+const terminalAddendaFieldsBySec: Record<string, FieldDefinition[]> = {
+  MTE: [
+    terminalAddendaCommonFields[0],
+    terminalAddendaCommonFields[1],
+    { start: 3, end: 10, name: 'Transaction Description', description: 'Description assigned to the machine transfer transaction' },
+    { start: 10, end: 13, name: 'Network Identification Code', description: 'Optional identifier of the transaction network' },
+    ...terminalAddendaCommonFields.slice(4, 7),
+    { start: 29, end: 35, name: 'Transaction Time', description: 'HHMMSS time at which the terminal transaction occurred' },
+    ...terminalAddendaCommonFields.slice(8),
+  ],
+  POS: terminalAddendaCommonFields,
+  SHR: terminalAddendaCommonFields,
+};
+
 export const recordFields: Record<string, FieldDefinition[]> = {
   '1': [
     { start: 0, end: 1, name: 'Record Type Code', description: '1 - File Header Record' },
@@ -353,6 +382,26 @@ const enrEntryFields: FieldDefinition[] = [
   ...recordFields['6'].slice(9),
 ];
 
+const mteEntryFields = entryFieldsWith({
+  39: { name: 'Individual Name', description: 'Name of the consumer using the machine terminal' },
+  54: { name: 'Individual Identification Number', description: 'Consumer identifier associated with the machine transfer' },
+});
+
+const posEntryFields = entryFieldsWith({
+  39: { name: 'Individual Identification Number', description: 'Optional consumer identifier for the point-of-sale transaction' },
+  54: { name: 'Individual Name', description: 'Name of the consumer making the point-of-sale transaction' },
+  76: { name: 'Card Transaction Type Code', description: 'Card-network code identifying purchase, cash, reversal, return, adjustment, or miscellaneous activity' },
+});
+
+const shrEntryFields: FieldDefinition[] = [
+  ...recordFields['6'].slice(0, 6),
+  { start: 39, end: 43, name: 'Card Expiration Date', description: 'MMYY expiration date of the card used for the transaction' },
+  { start: 43, end: 54, name: 'Document Reference Number', description: '11-digit document reference assigned to the transaction' },
+  { start: 54, end: 76, name: 'Individual Card Account Number', description: '22-digit card account number associated with the shared-network transaction' },
+  { start: 76, end: 78, name: 'Card Transaction Type Code', description: 'Card-network code identifying purchase, cash, reversal, return, adjustment, or miscellaneous activity' },
+  ...recordFields['6'].slice(9),
+];
+
 // These SEC classes share the standard 94-character Entry Detail shape but
 // assign different business meaning to positions 40-78.
 const entryFieldsBySec: Record<string, FieldDefinition[]> = {
@@ -378,6 +427,9 @@ const entryFieldsBySec: Record<string, FieldDefinition[]> = {
   CTX: ctxEntryFields,
   DNE: dneEntryFields,
   ENR: enrEntryFields,
+  MTE: mteEntryFields,
+  POS: posEntryFields,
+  SHR: shrEntryFields,
   WEB: entryFieldsWith({
     39: { name: 'Individual Identification Number / P2P Originator Name', description: 'Optional for WEB debits; contains the consumer Originator name for a WEB credit' },
     76: { name: 'Payment Type Code', description: 'Optional Originator-defined code; R, S, and ST have conventional meanings' },
@@ -408,6 +460,10 @@ export function getFieldsForRecord(recordType: string, line?: string, secCode?: 
 
   if (!fields && secCode === 'ADV') {
     fields = advRecordFields[recordType];
+  }
+
+  if (!fields && recordType === '7' && line && line.substring(1, 3) === '02' && secCode) {
+    fields = terminalAddendaFieldsBySec[secCode];
   }
 
   if (!fields && recordType === '6' && secCode) {

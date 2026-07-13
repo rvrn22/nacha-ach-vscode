@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added complete MTE, POS, and SHR Entry Detail and type-`02` terminal addenda layouts.
+- Added terminal/card field validation, mandatory live-entry addenda, prenote exceptions, full-trace navigation, safe trace repair, and explicit renumbering support.
 - Added CIE, DNE, and ENR contextual Entry Detail layouts with required identity and reserved-field validation.
 - Added DNE/ENR non-monetary transaction, zero-amount, mandatory-addenda, convention-content, count-limit, and safe ENR count-repair support.
 - Added complete ACK/ATX Entry Detail layouts, original-trace and required-field validation, zero-amount enforcement, and ATX declared-count checks.
@@ -22,7 +24,7 @@
 - Added reversal-batch classification, explorer/report counts, description repair, and transaction-kind validation.
 - Added dedicated domestic and IAT field layouts for Return (type 99) and Notification of Change (type 98) addenda.
 - Added `COR` and `IATCOR` validation, Return/NOC field rules, full-trace navigation, and deterministic trace synchronization.
-- Added Return/NOC, reversal, prenote, zero-dollar, net-position, Micro-Entry, complete-IAT, common domestic SEC, ADV, ACK/ATX, and CIE/DNE/ENR regression coverage and advanced the independent ruleset to `2026.07.12`.
+- Added Return/NOC, reversal, prenote, zero-dollar, net-position, Micro-Entry, complete-IAT, common domestic SEC, ADV, ACK/ATX, CIE/DNE/ENR, and MTE/POS/SHR regression coverage and advanced the independent ruleset to `2026.07.13`.
 
 All notable changes to the "nacha-file-parser" extension will be documented in this file.
 

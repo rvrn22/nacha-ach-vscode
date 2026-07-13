@@ -234,6 +234,18 @@ Status: Completed
 - [x] Validate and safely repair ENR declared addenda counts.
 - [x] Add valid, targeted-invalid, layout, content, and fix regression coverage.
 
+## Post-roadmap — MTE/POS/SHR terminal entries
+
+Status: Completed
+
+- [x] Decode the distinct MTE, POS, and SHR Entry Detail fields.
+- [x] Decode type `02` terminal addenda without mislabeling its full trace as type `05` sequence fields.
+- [x] Validate required terminal identity/location fields, MMDD transaction dates, and MTE HHMMSS times.
+- [x] Validate POS/SHR card transaction codes and SHR expiration, document-reference, card-account, and debit-only rules.
+- [x] Require one type `02` addenda for live entries while permitting terminal prenotes without addenda.
+- [x] Navigate, safely synchronize, and explicitly renumber complete terminal addenda traces.
+- [x] Add valid, prenote, targeted-invalid, decoding, navigation, and fix regression coverage.
+
 ## Test strategy
 
 - [ ] Golden valid/invalid fixtures for every supported SEC code.
@@ -241,7 +253,8 @@ Status: Completed
   - [x] Specialized ADV layout.
   - [x] Specialized ACK and ATX layouts.
   - [x] Specialized CIE, DNE, and ENR layouts.
-  - [ ] Specialized MTE, POS, SHR, and TRX layouts.
+  - [x] Specialized MTE, POS, and SHR layouts.
+  - [ ] Specialized TRX layout.
 - [ ] Returns, NOCs, reversals, prenotes, balanced/unbalanced files, and zero-dollar entries.
   - [x] Returns and NOCs.
   - [x] Reversals.
