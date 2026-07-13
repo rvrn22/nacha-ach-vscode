@@ -61,14 +61,14 @@ Definition of done: a user can understand a file without manually counting chara
 
 ## P1 — Navigation and reading aids
 
-Status: Planned
+Status: Completed
 
-- [ ] Add document symbols, breadcrumbs, and folding ranges.
-- [ ] Add commands for matching batch header/control and entry/addenda navigation.
-- [ ] Add next/previous ACH problem commands.
-- [ ] Add an optional 1–94 ruler and field-name inlay hints.
-- [ ] Highlight related header/control, trace, count, hash, and total fields.
-- [ ] Add sticky batch context for large files.
+- [x] Add document symbols, breadcrumbs, and folding ranges.
+- [x] Add commands for matching batch header/control and entry/addenda navigation.
+- [x] Add next/previous ACH problem commands.
+- [x] Add an optional 1–94 ruler and field-name inlay hints.
+- [x] Highlight related header/control, trace, count, hash, and total fields.
+- [x] Add sticky batch context for large files through the ACH symbol hierarchy.
 
 ## P1 — Safe Quick Fixes
 

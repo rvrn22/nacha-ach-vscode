@@ -49,6 +49,18 @@
         "command": "nacha-file-parser.refreshExplorer",
         "title": "Refresh Decoded ACH Explorer",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "nacha-file-parser.goToMatchingRecord",
+        "title": "ACH: Go to Matching Record"
+      },
+      {
+        "command": "nacha-file-parser.nextProblem",
+        "title": "ACH: Go to Next Problem"
+      },
+      {
+        "command": "nacha-file-parser.previousProblem",
+        "title": "ACH: Go to Previous Problem"
       }
     ],
     "views": {
@@ -72,6 +84,23 @@
           "when": "view == nacha-file-parser.decodedExplorer",
           "group": "navigation"
         }
+      ],
+      "editor/context": [
+        {
+          "command": "nacha-file-parser.goToMatchingRecord",
+          "when": "editorLangId == ach",
+          "group": "navigation"
+        },
+        {
+          "command": "nacha-file-parser.nextProblem",
+          "when": "editorLangId == ach",
+          "group": "navigation@10"
+        },
+        {
+          "command": "nacha-file-parser.previousProblem",
+          "when": "editorLangId == ach",
+          "group": "navigation@11"
+        }
       ]
     },
     "configuration": {
@@ -94,6 +123,16 @@
           "type": "boolean",
           "default": true,
           "description": "Masks account numbers and individual identifiers in the Decoded ACH explorer."
+        },
+        "nachaFileParser.showColumnRuler": {
+          "type": "boolean",
+          "default": true,
+          "description": "Shows a vertical boundary at fixed-width ACH column 94."
+        },
+        "nachaFileParser.showFieldInlayHints": {
+          "type": "boolean",
+          "default": false,
+          "description": "Shows field-name inlay hints at ACH field boundaries."
         }
       }
     }

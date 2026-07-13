@@ -11,6 +11,14 @@ import {
 } from './nachaParser';
 import { getAchFieldAtPosition, parseAchDocument, type AchDocument } from './achDocument';
 import { AchExplorerProvider } from './achExplorer';
+import {
+	AchDocumentSymbolProvider,
+	AchFoldingRangeProvider,
+	AchInlayHintsProvider,
+	findMatchingAchRange,
+	findRelatedAchRanges,
+	toVscodeRanges,
+} from './achNavigation';
 import { recordTypeDescriptions } from './nachaFields';
 
 type AchAnalysis = {
@@ -31,6 +39,11 @@ export function activate(context: vscode.ExtensionContext) {
 		100
 	);
 	context.subscriptions.push(statusBarItem);
+	const fieldStatusBarItem = vscode.window.createStatusBarItem(
+		vscode.StatusBarAlignment.Right,
+		100
+	);
+	context.subscriptions.push(fieldStatusBarItem);
 
 	// Create diagnostic collection
 	const diagnosticCollection = vscode.languages.createDiagnosticCollection('ach');
@@ -65,6 +78,15 @@ export function activate(context: vscode.ExtensionContext) {
 		return analysis;
 	};
 
+	const symbolProvider = new AchDocumentSymbolProvider(doc => getAnalysis(doc).document);
+	const foldingProvider = new AchFoldingRangeProvider(doc => getAnalysis(doc).document);
+	const inlayHintsProvider = new AchInlayHintsProvider(doc => getAnalysis(doc).document);
+	context.subscriptions.push(
+		vscode.languages.registerDocumentSymbolProvider('ach', symbolProvider),
+		vscode.languages.registerFoldingRangeProvider('ach', foldingProvider),
+		vscode.languages.registerInlayHintsProvider('ach', inlayHintsProvider),
+	);
+
 	// The command has been defined in the package.json file
 	// Now provide the implementation of the command with registerCommand
 	// The commandId parameter must match the command field in package.json
@@ -75,17 +97,50 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 
 	context.subscriptions.push(disposable);
+	const revealEditorRange = async (uri: vscode.Uri, range: vscode.Range) => {
+		const document = await vscode.workspace.openTextDocument(uri);
+		const editor = await vscode.window.showTextDocument(document, { preview: false });
+		editor.selection = new vscode.Selection(range.start, range.end);
+		editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+	};
+	const navigateProblem = async (direction: 1 | -1) => {
+		const editor = vscode.window.activeTextEditor;
+		if (!editor || editor.document.languageId !== 'ach') { return; }
+		const diagnostics = [...getAnalysis(editor.document).diagnostics]
+			.sort((left, right) => left.line - right.line || left.start - right.start);
+		if (diagnostics.length === 0) {
+			void vscode.window.showInformationMessage('No ACH validation problems found.');
+			return;
+		}
+		const position = editor.selection.active;
+		const currentOffset = position.line * 1000 + position.character;
+		const diagnostic = direction === 1
+			? diagnostics.find(item => item.line * 1000 + item.start > currentOffset) ?? diagnostics[0]
+			: [...diagnostics].reverse().find(item => item.line * 1000 + item.start < currentOffset) ?? diagnostics.at(-1)!;
+		await revealEditorRange(
+			editor.document.uri,
+			new vscode.Range(diagnostic.line, diagnostic.start, diagnostic.line, diagnostic.end),
+		);
+	};
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'nacha-file-parser.revealRange',
 			async (uri: vscode.Uri, line: number, start: number, end: number) => {
-				const document = await vscode.workspace.openTextDocument(uri);
-				const editor = await vscode.window.showTextDocument(document, { preview: false });
-				const range = new vscode.Range(line, start, line, end);
-				editor.selection = new vscode.Selection(range.start, range.end);
-				editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+				await revealEditorRange(uri, new vscode.Range(line, start, line, end));
 			},
 		),
+		vscode.commands.registerCommand('nacha-file-parser.goToMatchingRecord', async () => {
+			const editor = vscode.window.activeTextEditor;
+			if (!editor || editor.document.languageId !== 'ach') { return; }
+			const target = findMatchingAchRange(getAnalysis(editor.document).document, editor.selection.active.line);
+			if (!target) {
+				void vscode.window.showInformationMessage('This ACH record has no matching header, control, entry, or addenda record.');
+				return;
+			}
+			await revealEditorRange(editor.document.uri, new vscode.Range(target.line, target.start, target.line, target.end));
+		}),
+		vscode.commands.registerCommand('nacha-file-parser.nextProblem', () => navigateProblem(1)),
+		vscode.commands.registerCommand('nacha-file-parser.previousProblem', () => navigateProblem(-1)),
 		vscode.commands.registerCommand('nacha-file-parser.refreshExplorer', () => {
 			analysisCache.clear();
 			updateForEditor();
@@ -99,6 +154,8 @@ export function activate(context: vscode.ExtensionContext) {
 	let paddingRowDecoration: vscode.TextEditorDecorationType | undefined;
 	let batchSeparatorDecoration: vscode.TextEditorDecorationType | undefined;
 	let fieldDecorations: vscode.TextEditorDecorationType[] = [];
+	let columnRulerDecoration: vscode.TextEditorDecorationType | undefined;
+	let relatedFieldDecoration: vscode.TextEditorDecorationType | undefined;
 
 	const disposeDecorations = () => {
 		Object.values(recordDecorations).forEach(d => d && d.dispose());
@@ -106,11 +163,15 @@ export function activate(context: vscode.ExtensionContext) {
 		fieldDecorations.forEach(d => d && d.dispose());
 		if (paddingRowDecoration) { paddingRowDecoration.dispose(); }
 		if (batchSeparatorDecoration) { batchSeparatorDecoration.dispose(); }
+		if (columnRulerDecoration) { columnRulerDecoration.dispose(); }
+		if (relatedFieldDecoration) { relatedFieldDecoration.dispose(); }
 		recordDecorations = {} as Record<string, vscode.TextEditorDecorationType>;
 		batchRowDecorations = [];
 		fieldDecorations = [];
 		paddingRowDecoration = undefined;
 		batchSeparatorDecoration = undefined;
+		columnRulerDecoration = undefined;
+		relatedFieldDecoration = undefined;
 	};
 
 	const createDecorationsForTheme = (themeKind: vscode.ColorThemeKind) => {
@@ -188,6 +249,19 @@ export function activate(context: vscode.ExtensionContext) {
 		// Field decorations
 		fieldDecorations = fieldPalette.map(color => vscode.window.createTextEditorDecorationType({ color }));
 		fieldDecorations.forEach(d => context.subscriptions.push(d));
+
+		columnRulerDecoration = vscode.window.createTextEditorDecorationType({
+			borderWidth: '0 1px 0 0',
+			borderStyle: 'solid',
+			borderColor: isDark ? 'rgba(255,255,255,0.38)' : 'rgba(40,40,40,0.38)',
+		});
+		relatedFieldDecoration = vscode.window.createTextEditorDecorationType({
+			backgroundColor: isDark ? 'rgba(255,193,7,0.24)' : 'rgba(255,193,7,0.30)',
+			borderWidth: '0 0 1px 0',
+			borderStyle: 'solid',
+			borderColor: isDark ? 'rgba(255,213,79,0.85)' : 'rgba(180,120,0,0.85)',
+		});
+		context.subscriptions.push(columnRulerDecoration, relatedFieldDecoration);
 	};
 
 	// Initialize decorations for current theme
@@ -326,18 +400,52 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	};
 
+	const applyColumnRuler = (editor: vscode.TextEditor) => {
+		const enabled = vscode.workspace.getConfiguration('nachaFileParser', editor.document.uri).get<boolean>('showColumnRuler', true);
+		if (!enabled) {
+			editor.setDecorations(columnRulerDecoration!, []);
+			return;
+		}
+		const ranges = getAnalysis(editor.document).document.records
+			.filter(record => record.raw.length >= 94)
+			.map(record => new vscode.Range(record.line, 93, record.line, 94));
+		editor.setDecorations(columnRulerDecoration!, ranges);
+	};
+
+	const updateCursorContext = (editor: vscode.TextEditor) => {
+		if (editor.document.languageId !== 'ach') {
+			fieldStatusBarItem.hide();
+			return;
+		}
+		const position = editor.selection.active;
+		const achDocument = getAnalysis(editor.document).document;
+		const record = achDocument.recordByLine.get(position.line);
+		const field = record ? getAchFieldAtPosition(record, position.character) : undefined;
+		fieldStatusBarItem.text = `$(ruler) ACH Col ${position.character + 1}/94${field ? ` · ${field.name}` : ''}`;
+		fieldStatusBarItem.tooltip = field
+			? `${field.description}\nPositions ${field.start + 1}-${field.end}`
+			: 'Current fixed-width ACH column';
+		fieldStatusBarItem.show();
+
+		const relatedRanges = findRelatedAchRanges(achDocument, position.line, position.character);
+		editor.setDecorations(relatedFieldDecoration!, toVscodeRanges(relatedRanges));
+	};
+
 	const updateForEditor = () => {
 		const editor = vscode.window.activeTextEditor;
 		if (editor && editor.document.languageId === 'ach') {
 			const analysis = runOnAch(editor.document);
 			applyBatchRowDecorations(editor);
 			applyFieldDecorations(editor);
+			applyColumnRuler(editor);
+			updateCursorContext(editor);
 			if (analysis) {
 				const maskSensitiveValues = vscode.workspace.getConfiguration('nachaFileParser', editor.document.uri).get<boolean>('maskSensitiveValues', true);
 				explorerProvider.update(editor.document.uri, analysis.document, analysis.diagnostics, analysis.summary, maskSensitiveValues);
 			}
 		} else {
 			statusBarItem.hide();
+			fieldStatusBarItem.hide();
 			explorerProvider.clear();
 			const ed = editor;
 			if (ed) {
@@ -352,6 +460,8 @@ export function activate(context: vscode.ExtensionContext) {
 				for (const d of fieldDecorations) {
 					ed.setDecorations(d, []);
 				}
+				ed.setDecorations(columnRulerDecoration!, []);
+				ed.setDecorations(relatedFieldDecoration!, []);
 			}
 		}
 	};
@@ -433,13 +543,21 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 		}),
 		vscode.workspace.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration('nachaFileParser.validationProfile') || e.affectsConfiguration('nachaFileParser.maskSensitiveValues')) {
+			if (
+				e.affectsConfiguration('nachaFileParser.validationProfile')
+				|| e.affectsConfiguration('nachaFileParser.maskSensitiveValues')
+				|| e.affectsConfiguration('nachaFileParser.showColumnRuler')
+				|| e.affectsConfiguration('nachaFileParser.showFieldInlayHints')
+			) {
 				analysisCache.clear();
+				inlayHintsProvider.refresh();
 				updateForEditor();
 			}
 		}),
 		vscode.window.onDidChangeTextEditorSelection(e => {
-			if (!explorerView.visible || e.textEditor.document.languageId !== 'ach') { return; }
+			if (e.textEditor.document.languageId !== 'ach') { return; }
+			updateCursorContext(e.textEditor);
+			if (!explorerView.visible) { return; }
 			if (selectionTimer) { clearTimeout(selectionTimer); }
 			selectionTimer = setTimeout(() => {
 				const position = e.selections[0]?.active;
