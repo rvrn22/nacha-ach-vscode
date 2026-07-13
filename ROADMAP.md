@@ -87,14 +87,14 @@ Status: Completed
 
 ## P2 — Profiles, reporting, and automation
 
-Status: Planned
+Status: Completed
 
-- [ ] Support named institution/operator validation profiles.
-- [ ] Version rules independently from extension releases.
-- [ ] Export redacted validation reports as JSON and SARIF.
-- [ ] Provide a headless validator for CI and pre-upload checks.
-- [ ] Add configurable severities and rule suppressions with explanations.
-- [ ] Detect ACH content in `.txt` files and offer to switch language mode.
+- [x] Support named institution/operator validation profiles.
+- [x] Version rules independently from extension releases.
+- [x] Export redacted validation reports as JSON and SARIF.
+- [x] Provide a headless validator for CI and pre-upload checks.
+- [x] Add configurable severities and rule suppressions with explanations.
+- [x] Detect ACH content in `.txt` files and offer to switch language mode.
 
 ## P2 — Performance, accessibility, and product polish
 

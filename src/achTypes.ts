@@ -1,4 +1,7 @@
 export type AchDiagnosticSeverity = 0 | 1 | 2 | 3;
+export type AchRuleSeverityName = 'error' | 'warning' | 'information' | 'hint' | 'off';
+
+export const ACH_RULESET_VERSION = '2026.07.1';
 
 export type AchRuleCategory =
   | 'physical'
@@ -23,6 +26,8 @@ export type AchDiagnostic = {
   code: string;
   category: AchRuleCategory;
   profile: string;
+  rulesVersion: string;
+  overrideReason?: string;
   expected?: string;
   actual?: string;
   related?: AchRelatedLocation[];
@@ -34,6 +39,13 @@ export type AchValidationProfile = {
   requireBlocking: boolean;
   validateSecCompatibility: boolean;
   validateAsciiCharacters: boolean;
+  rulesVersion: string;
+  ruleOverrides: Record<string, AchRuleOverride>;
+};
+
+export type AchRuleOverride = {
+  severity: AchRuleSeverityName;
+  reason: string;
 };
 
 export const nachaValidationProfile: AchValidationProfile = {
@@ -42,6 +54,8 @@ export const nachaValidationProfile: AchValidationProfile = {
   requireBlocking: true,
   validateSecCompatibility: true,
   validateAsciiCharacters: true,
+  rulesVersion: ACH_RULESET_VERSION,
+  ruleOverrides: {},
 };
 
 /**

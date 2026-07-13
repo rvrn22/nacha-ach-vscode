@@ -3,12 +3,14 @@
 import * as vscode from 'vscode';
 import {
 	formatAchCents,
-	nachaValidationProfile,
 	parseAch,
 	parseAchSummary,
-	unblockedValidationProfile,
+	resolveAchValidationProfile,
+	validationProfileSignature,
 	type AchDiagnostic,
+	type AchValidationProfile,
 } from './nachaParser';
+import type { AchCustomProfileDefinition } from './achProfiles';
 import { getAchFieldAtPosition, parseAchDocument, type AchDocument } from './achDocument';
 import { AchExplorerProvider } from './achExplorer';
 import {
@@ -26,10 +28,13 @@ import {
 	toVscodeRanges,
 } from './achNavigation';
 import { recordTypeDescriptions } from './nachaFields';
+import { createAchJsonReport, createAchSarifReport, serializeAchReport } from './achReporting';
+import { detectAchContent } from './achDetection';
 
 type AchAnalysis = {
 	version: number;
-	profileId: string;
+	profileSignature: string;
+	profile: AchValidationProfile;
 	document: AchDocument;
 	diagnostics: AchDiagnostic[];
 	summary: ReturnType<typeof parseAchSummary>;
@@ -63,19 +68,43 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(explorerView);
 
 	const analysisCache = new Map<string, AchAnalysis>();
+	const detectionOffered = new Set<string>();
+	const offerAchLanguageMode = async (doc: vscode.TextDocument) => {
+		const configuration = vscode.workspace.getConfiguration('nachaFileParser', doc.uri);
+		if (!configuration.get<boolean>('detectAchInTextFiles', true)) { return; }
+		if (doc.languageId !== 'plaintext' || !doc.uri.path.toLowerCase().endsWith('.txt')) { return; }
+		const key = doc.uri.toString();
+		if (detectionOffered.has(key)) { return; }
+		const detection = detectAchContent(doc.getText());
+		if (!detection.isLikelyAch) { return; }
+		detectionOffered.add(key);
+		const choice = await vscode.window.showInformationMessage(
+			`This text file looks like a NACHA ACH file (${Math.round(detection.confidence * 100)}% confidence).`,
+			'Open as ACH',
+			'Not Now',
+		);
+		if (choice === 'Open as ACH') {
+			await vscode.languages.setTextDocumentLanguage(doc, 'ach');
+		}
+	};
 	const getAnalysis = (doc: vscode.TextDocument): AchAnalysis => {
 		const key = doc.uri.toString();
-		const profileSetting = vscode.workspace.getConfiguration('nachaFileParser', doc.uri).get<string>('validationProfile', 'nacha');
-		const profile = profileSetting === 'unblocked' ? unblockedValidationProfile : nachaValidationProfile;
+		const configuration = vscode.workspace.getConfiguration('nachaFileParser', doc.uri);
+		const profileSetting = configuration.get<string>('validationProfile', 'nacha');
+		const customProfiles = configuration.get<Record<string, AchCustomProfileDefinition>>('validationProfiles', {});
+		const ruleOverrides = configuration.get<Record<string, unknown>>('ruleOverrides', {});
+		const profile = resolveAchValidationProfile(profileSetting, customProfiles, ruleOverrides);
+		const profileSignature = validationProfileSignature(profile);
 		const cached = analysisCache.get(key);
-		if (cached?.version === doc.version && cached.profileId === profile.id) {
+		if (cached?.version === doc.version && cached.profileSignature === profileSignature) {
 			return cached;
 		}
 
 		const achDocument = parseAchDocument(doc.getText());
 		const analysis: AchAnalysis = {
 			version: doc.version,
-			profileId: profile.id,
+			profileSignature,
+			profile,
 			document: achDocument,
 			diagnostics: parseAch(achDocument, profile),
 			summary: parseAchSummary(achDocument),
@@ -148,6 +177,29 @@ export function activate(context: vscode.ExtensionContext) {
 				: 'Apply All Safe ACH Fixes';
 		await previewAndApplyAchEdits(editor.document, edits, title, fixPreviewProvider);
 	};
+	const exportValidationReport = async (format: 'json' | 'sarif') => {
+		const editor = vscode.window.activeTextEditor;
+		if (!editor || editor.document.languageId !== 'ach') { return; }
+		const analysis = getAnalysis(editor.document);
+		const fileName = editor.document.uri.path.split('/').at(-1) || 'ach-file';
+		const reportInput = {
+			fileName,
+			document: analysis.document,
+			diagnostics: analysis.diagnostics,
+			summary: analysis.summary,
+			profile: analysis.profile,
+		};
+		const report = format === 'sarif' ? createAchSarifReport(reportInput) : createAchJsonReport(reportInput);
+		const extension = format === 'sarif' ? 'sarif' : 'validation.json';
+		const destination = await vscode.window.showSaveDialog({
+			defaultUri: editor.document.uri.with({ path: `${editor.document.uri.path}.${extension}` }),
+			filters: format === 'sarif' ? { SARIF: ['sarif'] } : { JSON: ['json'] },
+			saveLabel: `Export Redacted ${format.toUpperCase()} Report`,
+		});
+		if (!destination) { return; }
+		await vscode.workspace.fs.writeFile(destination, new TextEncoder().encode(serializeAchReport(report)));
+		void vscode.window.showInformationMessage(`Redacted ACH validation report saved to ${destination.fsPath || destination.path}.`);
+	};
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'nacha-file-parser.revealRange',
@@ -170,6 +222,8 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand('nacha-file-parser.recalculateDerivedFields', () => runPreviewedFixes('derived')),
 		vscode.commands.registerCommand('nacha-file-parser.applyAllSafeFixes', () => runPreviewedFixes('all')),
 		vscode.commands.registerCommand('nacha-file-parser.renumberSequences', () => runPreviewedFixes('sequences')),
+		vscode.commands.registerCommand('nacha-file-parser.exportJsonReport', () => exportValidationReport('json')),
+		vscode.commands.registerCommand('nacha-file-parser.exportSarifReport', () => exportValidationReport('sarif')),
 		vscode.commands.registerCommand('nacha-file-parser.refreshExplorer', () => {
 			analysisCache.clear();
 			updateForEditor();
@@ -318,7 +372,8 @@ export function activate(context: vscode.ExtensionContext) {
 				new vscode.Position(d.line, d.start),
 				new vscode.Position(d.line, d.end)
 			);
-			const diagnostic = new vscode.Diagnostic(range, d.message, d.severity);
+			const diagnosticMessage = d.overrideReason ? `${d.message} (Override: ${d.overrideReason})` : d.message;
+			const diagnostic = new vscode.Diagnostic(range, diagnosticMessage, d.severity);
 			diagnostic.source = `NACHA · ${d.category}`;
 			diagnostic.code = d.code;
 			if (d.related?.length) {
@@ -497,6 +552,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	if (vscode.window.activeTextEditor) {
 		updateForEditor();
+		void offerAchLanguageMode(vscode.window.activeTextEditor.document);
 	}
 
 	// Register hover provider for ACH files
@@ -563,9 +619,14 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.workspace.onDidOpenTextDocument(doc => {
 			if (doc.languageId === 'ach') {
 				updateForEditor();
+			} else {
+				void offerAchLanguageMode(doc);
 			}
 		}),
-		vscode.window.onDidChangeActiveTextEditor(() => updateForEditor()),
+		vscode.window.onDidChangeActiveTextEditor(editor => {
+			updateForEditor();
+			if (editor) { void offerAchLanguageMode(editor.document); }
+		}),
 		vscode.workspace.onDidChangeTextDocument(e => {
 			if (e.document.languageId === 'ach') {
 				updateForEditor();
@@ -574,13 +635,20 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.workspace.onDidChangeConfiguration(e => {
 			if (
 				e.affectsConfiguration('nachaFileParser.validationProfile')
+				|| e.affectsConfiguration('nachaFileParser.validationProfiles')
+				|| e.affectsConfiguration('nachaFileParser.ruleOverrides')
 				|| e.affectsConfiguration('nachaFileParser.maskSensitiveValues')
 				|| e.affectsConfiguration('nachaFileParser.showColumnRuler')
 				|| e.affectsConfiguration('nachaFileParser.showFieldInlayHints')
+				|| e.affectsConfiguration('nachaFileParser.detectAchInTextFiles')
 			) {
 				analysisCache.clear();
 				inlayHintsProvider.refresh();
 				updateForEditor();
+				if (e.affectsConfiguration('nachaFileParser.detectAchInTextFiles') && vscode.window.activeTextEditor) {
+					detectionOffered.delete(vscode.window.activeTextEditor.document.uri.toString());
+					void offerAchLanguageMode(vscode.window.activeTextEditor.document);
+				}
 			}
 		}),
 		vscode.window.onDidChangeTextEditorSelection(e => {

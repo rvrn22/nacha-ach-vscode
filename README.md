@@ -46,6 +46,14 @@ A professional Visual Studio Code extension for developers and treasury professi
 - **Diff Before Apply**: Every multi-record command opens a comparison and waits for confirmation.
 - **Ambiguity Guardrails**: The extension never guesses routing numbers, dates, transaction/SEC codes, account data, or truncation.
 
+### 📋 Profiles, Reports, and Automation
+- **Named Profiles**: Define institution/operator profiles that extend strict or unblocked validation behavior.
+- **Explained Overrides**: Change or suppress exact rules, categories, or all rules only with a recorded reason.
+- **Versioned Rules**: Reports identify ruleset version `2026.07.1` independently from the extension version.
+- **Redacted Reports**: Export JSON or SARIF without exposing account numbers and individual identifiers.
+- **Headless CLI**: Run the same parser and validator in CI, scripts, and pre-upload workflows.
+- **Text Detection**: High-confidence ACH content in `.txt` files can switch to ACH language mode with one click.
+
 ### ⚙️ Highly Customizable
 - **Color Picker Support**: Choose your own colors for every record type (1-9) directly in the VS Code Settings UI.
 - **Theme Friendly**: Supports standardized 8-character hex colors (#rrggbbaa) for transparency.
@@ -59,15 +67,50 @@ Simply open any file with the `.ach` extension. The extension activates automati
 4. **Decoded ACH Explorer**: Expand the file hierarchy in the Explorer sidebar and select any field to reveal its raw source range.
 5. **ACH Navigation Commands**: Use the Command Palette or editor context menu to jump to matching records and validation problems.
 6. **Safe Repairs**: Use individual Quick Fixes or preview `Recalculate All Derived Fields`, `Apply All Safe Fixes`, and sequence-renumbering commands.
+7. **Reports and CI**: Export redacted reports from VS Code or run `ach-validate` from the command line.
+
+## Headless Validation
+
+```bash
+ach-validate payments.ach
+ach-validate --format sarif payments.ach > ach-results.sarif
+ach-validate --fail-on warning payments.ach
+ach-validate --rule 'ACH-PHYSICAL-PADDING-COUNT=off:Processor accepts unblocked files' payments.ach
+```
+
+The CLI exits `1` when the configured threshold is reached, `2` for usage/read failures, and `0` otherwise.
+
+## Named Profile Example
+
+```json
+{
+  "nachaFileParser.validationProfile": "partner-bank",
+  "nachaFileParser.validationProfiles": {
+    "partner-bank": {
+      "extends": "unblocked",
+      "displayName": "Partner Bank",
+      "ruleOverrides": {
+        "ACH-SEC-TRANSACTION-CODE": {
+          "severity": "warning",
+          "reason": "Partner performs this compatibility check after upload"
+        }
+      }
+    }
+  }
+}
+```
 
 ## Extension Settings
 
 This extension contributes the following settings:
 
-* `nachaFileParser.validationProfile`: Choose strict NACHA blocking or allow institution-compatible unblocked files.
+* `nachaFileParser.validationProfile`: Select the built-in `nacha`/`unblocked` profile or a custom named profile.
+* `nachaFileParser.validationProfiles`: Define named institution/operator profiles.
+* `nachaFileParser.ruleOverrides`: Override exact rules, categories, or all rules with a severity and explanation.
 * `nachaFileParser.maskSensitiveValues`: Mask account numbers and individual identifiers in the Decoded ACH explorer (enabled by default).
 * `nachaFileParser.showColumnRuler`: Show the fixed-width boundary at column 94 (enabled by default).
 * `nachaFileParser.showFieldInlayHints`: Show field names directly at fixed-width boundaries (disabled by default).
+* `nachaFileParser.detectAchInTextFiles`: Offer ACH language mode for high-confidence `.txt` files (enabled by default).
 * `nachaFileParser.recordTypeColors`: Customize background colors for each record type (1-9).
 * `nachaFileParser.batchRowColors`: Colors for alternating batches.
 * `nachaFileParser.fieldColors`: Text colors for alternating fields.

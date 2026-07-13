@@ -5,10 +5,13 @@ export type {
   AchDiagnostic,
   AchDiagnosticSeverity,
   AchRelatedLocation,
+  AchRuleOverride,
   AchRuleCategory,
+  AchRuleSeverityName,
   AchValidationProfile,
 } from './achTypes';
-export { nachaValidationProfile, unblockedValidationProfile } from './achTypes';
+export { ACH_RULESET_VERSION, nachaValidationProfile, unblockedValidationProfile } from './achTypes';
+export { resolveAchValidationProfile, validationProfileSignature } from './achProfiles';
 export { validateAch, validateAch as parseAch } from './achValidator';
 
 export type AchSummary = {

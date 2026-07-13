@@ -45,4 +45,31 @@ const extensionConfig = {
     level: "log", // enables logging required for problem matchers
   },
 };
-module.exports = [ extensionConfig ];
+
+/** @type WebpackConfig */
+const cliConfig = {
+  target: 'node',
+  mode: 'none',
+  entry: './src/cli.ts',
+  output: {
+    path: path.resolve(__dirname, 'dist'),
+    filename: 'cli.js',
+    libraryTarget: 'commonjs2'
+  },
+  externalsPresets: { node: true },
+  resolve: {
+    extensions: ['.ts', '.js']
+  },
+  module: {
+    rules: [
+      {
+        test: /\.ts$/,
+        exclude: /node_modules/,
+        use: ['ts-loader']
+      }
+    ]
+  },
+  devtool: 'nosources-source-map',
+};
+
+module.exports = [ extensionConfig, cliConfig ];

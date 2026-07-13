@@ -33,7 +33,7 @@ const secDescriptions: Record<string, string> = {
   WEB: 'Internet-Initiated/Mobile Entry',
 };
 
-const sensitiveFieldPattern = /(?:account number|individual identification|receiver id|identification number|foreign receiver)/i;
+const sensitiveFieldPattern = /(?:account number|company identification|originator identification|individual identification|receiver id|identification number|foreign receiver)/i;
 
 export function isSensitiveAchField(fieldName: string): boolean {
   return sensitiveFieldPattern.test(fieldName);

@@ -14,6 +14,7 @@ import {
   type AchDiagnosticSeverity,
   type AchRelatedLocation,
   type AchRuleCategory,
+  type AchRuleSeverityName,
   type AchValidationProfile,
 } from './achTypes';
 
@@ -47,6 +48,8 @@ class ValidationContext {
     message: string,
     options: DiagnosticOptions = {},
   ): void {
+    const override = this.overrideFor(code, category);
+    if (override?.severity === 'off') { return; }
     const line = record?.line ?? 0;
     const length = record?.raw.length ?? 0;
     const safeStart = Math.min(start, length);
@@ -56,10 +59,12 @@ class ValidationContext {
       start: safeStart,
       end: safeEnd,
       message,
-      severity: options.severity ?? 0,
+      severity: override ? this.severityValue(override.severity) : options.severity ?? 0,
       code,
       category,
       profile: this.profile.id,
+      rulesVersion: this.profile.rulesVersion,
+      overrideReason: override?.reason,
       expected: options.expected,
       actual: options.actual,
       related: options.related,
@@ -74,19 +79,33 @@ class ValidationContext {
     message: string,
     options: DiagnosticOptions = {},
   ): void {
+    const override = this.overrideFor(code, category);
+    if (override?.severity === 'off') { return; }
     this.diagnostics.push({
       line,
       start: 0,
       end: Math.min(Math.max(length, 0), 94),
       message,
-      severity: options.severity ?? 0,
+      severity: override ? this.severityValue(override.severity) : options.severity ?? 0,
       code,
       category,
       profile: this.profile.id,
+      rulesVersion: this.profile.rulesVersion,
+      overrideReason: override?.reason,
       expected: options.expected,
       actual: options.actual,
       related: options.related,
     });
+  }
+
+  private overrideFor(code: string, category: AchRuleCategory) {
+    return this.profile.ruleOverrides[code]
+      ?? this.profile.ruleOverrides[`category:${category}`]
+      ?? this.profile.ruleOverrides['*'];
+  }
+
+  private severityValue(severity: Exclude<AchRuleSeverityName, 'off'>): AchDiagnosticSeverity {
+    return severity === 'error' ? 0 : severity === 'warning' ? 1 : severity === 'information' ? 2 : 3;
   }
 }
 

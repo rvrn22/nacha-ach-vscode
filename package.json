@@ -17,9 +17,13 @@
     "Other"
   ],
   "activationEvents": [
-    "onLanguage:ach"
+    "onLanguage:ach",
+    "onLanguage:plaintext"
   ],
   "main": "./dist/extension.js",
+  "bin": {
+    "ach-validate": "./bin/ach-validate.js"
+  },
   "contributes": {
     "languages": [
       {
@@ -73,6 +77,14 @@
       {
         "command": "nacha-file-parser.renumberSequences",
         "title": "ACH: Renumber Batches, Traces, and Addenda Sequences"
+      },
+      {
+        "command": "nacha-file-parser.exportJsonReport",
+        "title": "ACH: Export Redacted JSON Validation Report"
+      },
+      {
+        "command": "nacha-file-parser.exportSarifReport",
+        "title": "ACH: Export Redacted SARIF Validation Report"
       }
     ],
     "views": {
@@ -127,6 +139,16 @@
           "command": "nacha-file-parser.renumberSequences",
           "when": "editorLangId == ach",
           "group": "1_modification@12"
+        },
+        {
+          "command": "nacha-file-parser.exportJsonReport",
+          "when": "editorLangId == ach",
+          "group": "2_reporting@10"
+        },
+        {
+          "command": "nacha-file-parser.exportSarifReport",
+          "when": "editorLangId == ach",
+          "group": "2_reporting@11"
         }
       ]
     },
@@ -135,16 +157,57 @@
       "properties": {
         "nachaFileParser.validationProfile": {
           "type": "string",
-          "enum": [
-            "nacha",
-            "unblocked"
-          ],
-          "enumDescriptions": [
-            "Require physical records and padding to form complete blocks of 10.",
-            "Allow institutions that accept unblocked files while retaining all other validations."
-          ],
           "default": "nacha",
-          "description": "Controls physical ACH blocking validation."
+          "description": "Named validation profile. Built-ins are 'nacha' and 'unblocked'; custom names can be defined in nachaFileParser.validationProfiles."
+        },
+        "nachaFileParser.validationProfiles": {
+          "type": "object",
+          "default": {},
+          "description": "Named institution or operator validation profiles.",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "extends": {
+                "type": "string",
+                "enum": ["nacha", "unblocked"],
+                "default": "nacha"
+              },
+              "displayName": { "type": "string" },
+              "requireBlocking": { "type": "boolean" },
+              "validateSecCompatibility": { "type": "boolean" },
+              "validateAsciiCharacters": { "type": "boolean" },
+              "ruleOverrides": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "object",
+                  "required": ["severity", "reason"],
+                  "properties": {
+                    "severity": {
+                      "type": "string",
+                      "enum": ["error", "warning", "information", "hint", "off"]
+                    },
+                    "reason": { "type": "string", "minLength": 1 }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "nachaFileParser.ruleOverrides": {
+          "type": "object",
+          "default": {},
+          "description": "Workspace rule severity overrides. Keys may be rule codes, category names such as 'category:physical', or '*'. Every override requires an explanation.",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["severity", "reason"],
+            "properties": {
+              "severity": {
+                "type": "string",
+                "enum": ["error", "warning", "information", "hint", "off"]
+              },
+              "reason": { "type": "string", "minLength": 1 }
+            }
+          }
         },
         "nachaFileParser.maskSensitiveValues": {
           "type": "boolean",
@@ -160,6 +223,11 @@
           "type": "boolean",
           "default": false,
           "description": "Shows field-name inlay hints at ACH field boundaries."
+        },
+        "nachaFileParser.detectAchInTextFiles": {
+          "type": "boolean",
+          "default": true,
+          "description": "Detects high-confidence ACH content in .txt files and offers ACH language mode."
         }
       }
     }
@@ -169,6 +237,7 @@
     "compile": "webpack",
     "watch": "webpack --watch",
     "package": "webpack --mode production --devtool hidden-source-map",
+    "validate:ach": "node ./bin/ach-validate.js",
     "compile-tests": "tsc -p . --outDir out",
     "watch-tests": "tsc -p . -w --outDir out",
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
