@@ -68,6 +68,7 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(explorerView);
 
 	const analysisCache = new Map<string, AchAnalysis>();
+	const documentUpdateTimers = new Map<string, NodeJS.Timeout>();
 	const detectionOffered = new Set<string>();
 	const offerAchLanguageMode = async (doc: vscode.TextDocument) => {
 		const configuration = vscode.workspace.getConfiguration('nachaFileParser', doc.uri);
@@ -128,13 +129,26 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.workspace.registerTextDocumentContentProvider('ach-fix-preview', fixPreviewProvider),
 	);
 
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
-	const disposable = vscode.commands.registerCommand('nacha-file-parser.helloWorld', () => {
-		// The code you place here will be executed every time your command is executed
-		// Display a message box to the user
-		vscode.window.showInformationMessage('Hello World from Nacha File Parser!');
+	const disposable = vscode.commands.registerCommand('nacha-file-parser.showFileSummary', async () => {
+		const editor = vscode.window.activeTextEditor;
+		if (!editor || editor.document.languageId !== 'ach') {
+			void vscode.window.showInformationMessage('Open an ACH file to view its summary.');
+			return;
+		}
+		const analysis = getAnalysis(editor.document);
+		const errors = analysis.diagnostics.filter(diagnostic => diagnostic.severity === 0).length;
+		const warnings = analysis.diagnostics.filter(diagnostic => diagnostic.severity === 1).length;
+		await vscode.window.showQuickPick([
+			{ label: '$(layers) Batches', description: String(analysis.summary.batches) },
+			{ label: '$(list-ordered) Entries', description: String(analysis.summary.entries) },
+			{ label: '$(arrow-up) Credits', description: `$${formatAchCents(analysis.summary.totalCreditCents)}` },
+			{ label: '$(arrow-down) Debits', description: `$${formatAchCents(analysis.summary.totalDebitCents)}` },
+			{ label: '$(diff) Net Amount', description: `$${formatAchCents(analysis.summary.netAmountCents)}` },
+			{ label: '$(error) Errors', description: String(errors) },
+			{ label: '$(warning) Warnings', description: String(warnings) },
+			{ label: '$(settings) Profile', description: analysis.profile.displayName },
+			{ label: '$(versions) Ruleset', description: analysis.profile.rulesVersion },
+		], { title: 'ACH File Summary', placeHolder: 'Summary values are read-only' });
 	});
 
 	context.subscriptions.push(disposable);
@@ -239,6 +253,8 @@ export function activate(context: vscode.ExtensionContext) {
 	let fieldDecorations: vscode.TextEditorDecorationType[] = [];
 	let columnRulerDecoration: vscode.TextEditorDecorationType | undefined;
 	let relatedFieldDecoration: vscode.TextEditorDecorationType | undefined;
+	let recordLabelDecorations: Record<string, vscode.TextEditorDecorationType> = {};
+	let paddingLabelDecoration: vscode.TextEditorDecorationType | undefined;
 
 	const disposeDecorations = () => {
 		Object.values(recordDecorations).forEach(d => d && d.dispose());
@@ -248,6 +264,8 @@ export function activate(context: vscode.ExtensionContext) {
 		if (batchSeparatorDecoration) { batchSeparatorDecoration.dispose(); }
 		if (columnRulerDecoration) { columnRulerDecoration.dispose(); }
 		if (relatedFieldDecoration) { relatedFieldDecoration.dispose(); }
+		Object.values(recordLabelDecorations).forEach(decoration => decoration.dispose());
+		if (paddingLabelDecoration) { paddingLabelDecoration.dispose(); }
 		recordDecorations = {} as Record<string, vscode.TextEditorDecorationType>;
 		batchRowDecorations = [];
 		fieldDecorations = [];
@@ -255,13 +273,17 @@ export function activate(context: vscode.ExtensionContext) {
 		batchSeparatorDecoration = undefined;
 		columnRulerDecoration = undefined;
 		relatedFieldDecoration = undefined;
+		recordLabelDecorations = {};
+		paddingLabelDecoration = undefined;
 	};
 
 	const createDecorationsForTheme = (themeKind: vscode.ColorThemeKind) => {
 		// Choose palettes tuned for light vs dark themes
 		const isDark = themeKind === vscode.ColorThemeKind.Dark || themeKind === vscode.ColorThemeKind.HighContrast;
+		const isHighContrast = themeKind === vscode.ColorThemeKind.HighContrast || themeKind === vscode.ColorThemeKind.HighContrastLight;
+		const configuration = vscode.workspace.getConfiguration('nachaFileParser');
 
-		const recordPalette: Record<'1'|'5'|'6'|'7'|'8'|'9', string> = isDark ? {
+		const defaultRecordPalette: Record<'1'|'5'|'6'|'7'|'8'|'9', string> = isDark ? {
 			'1': 'rgba(244,67,54,0.28)',
 			'5': 'rgba(76,175,80,0.28)',
 			'6': 'rgba(33,150,243,0.28)',
@@ -276,22 +298,31 @@ export function activate(context: vscode.ExtensionContext) {
 			'8': 'rgba(156,39,176,0.12)',
 			'9': 'rgba(96,125,139,0.08)'
 		};
+		const recordPalette = {
+			...defaultRecordPalette,
+			...configuration.get<Partial<typeof defaultRecordPalette>>('recordTypeColors', {}),
+		};
 
-		const batchRowPalette = isDark ? [
+		const defaultBatchRowPalette = isDark ? [
 			'rgba(70,44,25,0.20)',
 			'rgba(48,50,54,0.16)'
 		] : [
 			'rgba(247,211,161,0.14)',
 			'rgba(249,241,215,0.12)'
 		];
+		const configuredBatchColors = configuration.get<string[]>('batchRowColors', []);
+		const batchRowPalette = configuredBatchColors.length >= 2 ? configuredBatchColors : defaultBatchRowPalette;
 
-		const fieldPalette = isDark ? [
+		const defaultFieldPalette = isDark ? [
 			'rgba(102,187,106,1)',
 			'rgba(149,117,205,1)'
 		] : [
 			'rgba(1,87,43,1)',
 			'rgba(93,4,246,1)'
 		];
+		const configuredFieldColors = configuration.get<string[]>('fieldColors', []);
+		const fieldPalette = configuredFieldColors.length >= 2 ? configuredFieldColors : defaultFieldPalette;
+		const accessibleFieldBoundaries = isHighContrast || configuration.get<boolean>('accessibleFieldBoundaries', false);
 
 		// Dispose any previous decorations
 		disposeDecorations();
@@ -322,7 +353,8 @@ export function activate(context: vscode.ExtensionContext) {
 		batchRowDecorations.forEach(d => context.subscriptions.push(d));
 
 		// Padding row
-		paddingRowDecoration = vscode.window.createTextEditorDecorationType({ isWholeLine: true, backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(200,200,200,0.06)', fontStyle: 'italic', opacity: '0.7' });
+		const configuredPaddingColor = configuration.get<string | null>('paddingRowColor', null);
+		paddingRowDecoration = vscode.window.createTextEditorDecorationType({ isWholeLine: true, backgroundColor: configuredPaddingColor || (isDark ? 'rgba(255,255,255,0.02)' : 'rgba(200,200,200,0.06)'), fontStyle: 'italic', opacity: '0.7' });
 		context.subscriptions.push(paddingRowDecoration);
 
 		// Batch separator
@@ -330,7 +362,10 @@ export function activate(context: vscode.ExtensionContext) {
 		context.subscriptions.push(batchSeparatorDecoration);
 
 		// Field decorations
-		fieldDecorations = fieldPalette.map(color => vscode.window.createTextEditorDecorationType({ color }));
+		fieldDecorations = fieldPalette.map((color, index) => vscode.window.createTextEditorDecorationType({
+			color,
+			textDecoration: accessibleFieldBoundaries && index % 2 === 0 ? 'underline dotted' : undefined,
+		}));
 		fieldDecorations.forEach(d => context.subscriptions.push(d));
 
 		columnRulerDecoration = vscode.window.createTextEditorDecorationType({
@@ -345,6 +380,25 @@ export function activate(context: vscode.ExtensionContext) {
 			borderColor: isDark ? 'rgba(255,213,79,0.85)' : 'rgba(180,120,0,0.85)',
 		});
 		context.subscriptions.push(columnRulerDecoration, relatedFieldDecoration);
+
+		const recordLabels: Record<string, string> = {
+			'1': 'File Header',
+			'5': 'Batch Header',
+			'6': 'Entry Detail',
+			'7': 'Addenda',
+			'8': 'Batch Control',
+			'9': 'File Control',
+		};
+		for (const [type, label] of Object.entries(recordLabels)) {
+			recordLabelDecorations[type] = vscode.window.createTextEditorDecorationType({
+				after: { contentText: `  ← ${label}`, color: new vscode.ThemeColor('descriptionForeground'), fontStyle: 'italic' },
+			});
+			context.subscriptions.push(recordLabelDecorations[type]);
+		}
+		paddingLabelDecoration = vscode.window.createTextEditorDecorationType({
+			after: { contentText: '  ← Padding', color: new vscode.ThemeColor('descriptionForeground'), fontStyle: 'italic' },
+		});
+		context.subscriptions.push(paddingLabelDecoration);
 	};
 
 	// Initialize decorations for current theme
@@ -367,7 +421,8 @@ export function activate(context: vscode.ExtensionContext) {
 
 		// Update diagnostics
 		const diagnostics: vscode.Diagnostic[] = [];
-		for (const d of analysis.diagnostics) {
+		const maxDiagnostics = Math.max(1, vscode.workspace.getConfiguration('nachaFileParser', doc.uri).get<number>('maxDiagnostics', 1000));
+		for (const d of analysis.diagnostics.slice(0, maxDiagnostics)) {
 			const range = new vscode.Range(
 				new vscode.Position(d.line, d.start),
 				new vscode.Position(d.line, d.end)
@@ -385,6 +440,17 @@ export function activate(context: vscode.ExtensionContext) {
 					item.message,
 				));
 			}
+			diagnostics.push(diagnostic);
+		}
+		if (analysis.diagnostics.length > maxDiagnostics) {
+			const omitted = analysis.diagnostics.length - maxDiagnostics;
+			const diagnostic = new vscode.Diagnostic(
+				new vscode.Range(0, 0, 0, 1),
+				`${omitted} additional ACH diagnostics omitted from Problems for performance. Export a report or use the CLI for the complete result.`,
+				vscode.DiagnosticSeverity.Information,
+			);
+			diagnostic.source = 'NACHA · performance';
+			diagnostic.code = 'ACH-UI-DIAGNOSTIC-LIMIT';
 			diagnostics.push(diagnostic);
 		}
 		diagnosticCollection.set(doc.uri, diagnostics);
@@ -405,11 +471,16 @@ export function activate(context: vscode.ExtensionContext) {
 	const applyAchDecorations = (editor: vscode.TextEditor) => {
 		const doc = editor.document;
 		const perTypeRanges: Record<string, vscode.Range[]> = { '1': [], '5': [], '6': [], '7': [], '8': [], '9': [] };
+		const paddingRanges: vscode.Range[] = [];
 		const lineCount = doc.lineCount;
 		for (let i = 0; i < lineCount; i++) {
 			const line = doc.lineAt(i);
 			const text = line.text;
 			if (text.length === 0) { continue; }
+			if (/^9{94}$/.test(text)) {
+				paddingRanges.push(line.range);
+				continue;
+			}
 			const t = text.charAt(0);
 			if (perTypeRanges[t]) {
 				perTypeRanges[t].push(line.range);
@@ -418,6 +489,9 @@ export function activate(context: vscode.ExtensionContext) {
 		for (const t of Object.keys(recordDecorations)) {
 			editor.setDecorations(recordDecorations[t], perTypeRanges[t] || []);
 		}
+		for (const decoration of batchRowDecorations) { editor.setDecorations(decoration, []); }
+		editor.setDecorations(batchSeparatorDecoration!, []);
+		editor.setDecorations(paddingRowDecoration!, paddingRanges);
 	};
 
 	const applyBatchRowDecorations = (editor: vscode.TextEditor) => {
@@ -466,7 +540,12 @@ export function activate(context: vscode.ExtensionContext) {
 		const achDocument = getAnalysis(doc).document;
 		const perDecorationRanges: vscode.Range[][] = fieldDecorations.map(() => []);
 
+		const visibleRanges = editor.visibleRanges;
+		const visibleLine = (line: number) => visibleRanges.length === 0 || visibleRanges.some(range =>
+			line >= Math.max(0, range.start.line - 25) && line <= range.end.line + 25,
+		);
 		for (const record of achDocument.records) {
+			if (!visibleLine(record.line)) { continue; }
 			if (record.kind === 'padding') { continue; }
 			// Apply alternating colors to fields
 			for (let fieldIdx = 0; fieldIdx < record.fields.length; fieldIdx++) {
@@ -496,6 +575,29 @@ export function activate(context: vscode.ExtensionContext) {
 		editor.setDecorations(columnRulerDecoration!, ranges);
 	};
 
+	const applyRecordLabels = (editor: vscode.TextEditor) => {
+		const enabled = vscode.workspace.getConfiguration('nachaFileParser', editor.document.uri).get<boolean>('showRecordTypeLabels', true);
+		const rangesByType: Record<string, vscode.Range[]> = {};
+		for (const type of Object.keys(recordLabelDecorations)) { rangesByType[type] = []; }
+		const paddingRanges: vscode.Range[] = [];
+		if (enabled) {
+			const visibleRanges = editor.visibleRanges;
+			const visibleLine = (line: number) => visibleRanges.length === 0 || visibleRanges.some(range =>
+				line >= Math.max(0, range.start.line - 25) && line <= range.end.line + 25,
+			);
+			for (const record of getAnalysis(editor.document).document.records) {
+				if (!visibleLine(record.line)) { continue; }
+				const range = editor.document.lineAt(record.line).range;
+				if (record.kind === 'padding') { paddingRanges.push(range); }
+				else if (rangesByType[record.recordType]) { rangesByType[record.recordType].push(range); }
+			}
+		}
+		for (const [type, decoration] of Object.entries(recordLabelDecorations)) {
+			editor.setDecorations(decoration, rangesByType[type]);
+		}
+		editor.setDecorations(paddingLabelDecoration!, paddingRanges);
+	};
+
 	const updateCursorContext = (editor: vscode.TextEditor) => {
 		if (editor.document.languageId !== 'ach') {
 			fieldStatusBarItem.hide();
@@ -519,13 +621,18 @@ export function activate(context: vscode.ExtensionContext) {
 		const editor = vscode.window.activeTextEditor;
 		if (editor && editor.document.languageId === 'ach') {
 			const analysis = runOnAch(editor.document);
-			applyBatchRowDecorations(editor);
+			const rowColoring = vscode.workspace.getConfiguration('nachaFileParser', editor.document.uri).get<string>('rowColoring', 'batches');
+			if (rowColoring === 'recordTypes') { applyAchDecorations(editor); }
+			else { applyBatchRowDecorations(editor); }
 			applyFieldDecorations(editor);
 			applyColumnRuler(editor);
+			applyRecordLabels(editor);
 			updateCursorContext(editor);
 			if (analysis) {
-				const maskSensitiveValues = vscode.workspace.getConfiguration('nachaFileParser', editor.document.uri).get<boolean>('maskSensitiveValues', true);
-				explorerProvider.update(editor.document.uri, analysis.document, analysis.diagnostics, analysis.summary, maskSensitiveValues);
+				const configuration = vscode.workspace.getConfiguration('nachaFileParser', editor.document.uri);
+				const maskSensitiveValues = configuration.get<boolean>('maskSensitiveValues', true);
+				const explorerEntryLimit = configuration.get<number>('explorerEntryLimit', 1000);
+				explorerProvider.update(editor.document.uri, analysis.document, analysis.diagnostics, analysis.summary, maskSensitiveValues, explorerEntryLimit);
 			}
 		} else {
 			statusBarItem.hide();
@@ -546,6 +653,8 @@ export function activate(context: vscode.ExtensionContext) {
 				}
 				ed.setDecorations(columnRulerDecoration!, []);
 				ed.setDecorations(relatedFieldDecoration!, []);
+				for (const decoration of Object.values(recordLabelDecorations)) { ed.setDecorations(decoration, []); }
+				ed.setDecorations(paddingLabelDecoration!, []);
 			}
 		}
 	};
@@ -554,6 +663,19 @@ export function activate(context: vscode.ExtensionContext) {
 		updateForEditor();
 		void offerAchLanguageMode(vscode.window.activeTextEditor.document);
 	}
+
+	const scheduleDocumentUpdate = (doc: vscode.TextDocument) => {
+		const key = doc.uri.toString();
+		const existing = documentUpdateTimers.get(key);
+		if (existing) { clearTimeout(existing); }
+		const delay = Math.max(0, vscode.workspace.getConfiguration('nachaFileParser', doc.uri).get<number>('validationDebounceMs', 150));
+		documentUpdateTimers.set(key, setTimeout(() => {
+			documentUpdateTimers.delete(key);
+			if (vscode.window.activeTextEditor?.document.uri.toString() === key) {
+				updateForEditor();
+			}
+		}, delay));
+	};
 
 	// Register hover provider for ACH files
 	const hoverProvider = vscode.languages.registerHoverProvider('ach', {
@@ -613,6 +735,8 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push({
 		dispose: () => {
 			if (selectionTimer) { clearTimeout(selectionTimer); }
+			for (const timer of documentUpdateTimers.values()) { clearTimeout(timer); }
+			documentUpdateTimers.clear();
 		},
 	});
 	context.subscriptions.push(
@@ -629,10 +753,23 @@ export function activate(context: vscode.ExtensionContext) {
 		}),
 		vscode.workspace.onDidChangeTextDocument(e => {
 			if (e.document.languageId === 'ach') {
-				updateForEditor();
+				scheduleDocumentUpdate(e.document);
+			}
+		}),
+		vscode.window.onDidChangeTextEditorVisibleRanges(e => {
+			if (e.textEditor.document.languageId === 'ach') {
+				applyFieldDecorations(e.textEditor);
+				applyRecordLabels(e.textEditor);
 			}
 		}),
 		vscode.workspace.onDidChangeConfiguration(e => {
+			const decorationConfigurationChanged = [
+				'nachaFileParser.recordTypeColors',
+				'nachaFileParser.batchRowColors',
+				'nachaFileParser.fieldColors',
+				'nachaFileParser.paddingRowColor',
+				'nachaFileParser.accessibleFieldBoundaries',
+			].some(setting => e.affectsConfiguration(setting));
 			if (
 				e.affectsConfiguration('nachaFileParser.validationProfile')
 				|| e.affectsConfiguration('nachaFileParser.validationProfiles')
@@ -641,8 +778,16 @@ export function activate(context: vscode.ExtensionContext) {
 				|| e.affectsConfiguration('nachaFileParser.showColumnRuler')
 				|| e.affectsConfiguration('nachaFileParser.showFieldInlayHints')
 				|| e.affectsConfiguration('nachaFileParser.detectAchInTextFiles')
+				|| e.affectsConfiguration('nachaFileParser.rowColoring')
+				|| e.affectsConfiguration('nachaFileParser.showRecordTypeLabels')
+				|| e.affectsConfiguration('nachaFileParser.explorerEntryLimit')
+				|| e.affectsConfiguration('nachaFileParser.maxDiagnostics')
+				|| decorationConfigurationChanged
 			) {
 				analysisCache.clear();
+				if (decorationConfigurationChanged) {
+					createDecorationsForTheme(vscode.window.activeColorTheme.kind);
+				}
 				inlayHintsProvider.refresh();
 				updateForEditor();
 				if (e.affectsConfiguration('nachaFileParser.detectAchInTextFiles') && vscode.window.activeTextEditor) {
@@ -665,7 +810,12 @@ export function activate(context: vscode.ExtensionContext) {
 				}
 			}, 50);
 		}),
-		vscode.workspace.onDidCloseTextDocument(doc => analysisCache.delete(doc.uri.toString()))
+		vscode.workspace.onDidCloseTextDocument(doc => {
+			analysisCache.delete(doc.uri.toString());
+			const timer = documentUpdateTimers.get(doc.uri.toString());
+			if (timer) { clearTimeout(timer); }
+			documentUpdateTimers.delete(doc.uri.toString());
+		})
 	);
 }
 

@@ -90,4 +90,17 @@ suite('ACH Decoding and Explorer Test Suite', () => {
     assert.strictEqual(fieldNode?.start, 29);
     assert.strictEqual(fieldNode?.end, 39);
   });
+
+  test('Caps materialized explorer entries for large-file responsiveness', () => {
+    const base = sampleDocument();
+    const lines = [...base.lines];
+    lines.splice(3, 0, lines[2]);
+    const document = parseAchDocument(lines.join('\n'));
+    const provider = new AchExplorerProvider();
+    provider.update(vscode.Uri.file('/tmp/limited.ach'), document, [], parseAchSummary(document), true, 1);
+
+    const batch = provider.getChildren()[0].children.find(node => node.kind === 'batch');
+    assert.strictEqual(batch?.children.filter(node => node.kind === 'entry').length, 1);
+    assert.ok(batch?.children.some(node => String(node.label).includes('additional entry')));
+  });
 });

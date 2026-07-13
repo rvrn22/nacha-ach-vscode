@@ -133,6 +133,7 @@ export class AchExplorerProvider implements vscode.TreeDataProvider<AchExplorerN
     diagnostics: AchDiagnostic[],
     summary: AchSummary,
     maskSensitiveValues: boolean,
+    entryLimit = 1000,
   ): void {
     this.recordNodeByLine.clear();
     this.fieldNodesByLine.clear();
@@ -147,8 +148,9 @@ export class AchExplorerProvider implements vscode.TreeDataProvider<AchExplorerN
     for (const header of document.fileHeaders) {
       fileNode.add(this.createRecordNode(uri, header, diagnostics, maskSensitiveValues));
     }
+    const entryBudget = { remaining: Math.max(0, entryLimit) };
     for (let index = 0; index < document.batches.length; index++) {
-      fileNode.add(this.createBatchNode(uri, document.batches[index], index, diagnostics, maskSensitiveValues));
+      fileNode.add(this.createBatchNode(uri, document.batches[index], index, diagnostics, maskSensitiveValues, entryBudget));
     }
     for (const control of document.fileControls) {
       fileNode.add(this.createRecordNode(uri, control, diagnostics, maskSensitiveValues));
@@ -190,6 +192,7 @@ export class AchExplorerProvider implements vscode.TreeDataProvider<AchExplorerN
     index: number,
     diagnostics: AchDiagnostic[],
     maskSensitiveValues: boolean,
+    entryBudget: { remaining: number },
   ): AchExplorerNode {
     const batchNumber = trimmed(batch.header, 87, 94) || String(index + 1);
     const secCode = batch.secCode || 'Unknown SEC';
@@ -202,8 +205,22 @@ export class AchExplorerProvider implements vscode.TreeDataProvider<AchExplorerN
     addDiagnosticBadge(node, diagnosticsForLines(diagnostics, batch.records.map(record => record.line)), `${batch.entries.length} entries · ${amountDescription}`);
 
     node.add(this.createRecordNode(uri, batch.header, diagnostics, maskSensitiveValues));
-    for (let entryIndex = 0; entryIndex < batch.entries.length; entryIndex++) {
+    const visibleEntryCount = Math.min(batch.entries.length, entryBudget.remaining);
+    for (let entryIndex = 0; entryIndex < visibleEntryCount; entryIndex++) {
       node.add(this.createEntryNode(uri, batch.entries[entryIndex], entryIndex, diagnostics, maskSensitiveValues));
+    }
+    entryBudget.remaining -= visibleEntryCount;
+    const hiddenEntryCount = batch.entries.length - visibleEntryCount;
+    if (hiddenEntryCount > 0) {
+      const hidden = new AchExplorerNode(
+        `${hiddenEntryCount} additional entr${hiddenEntryCount === 1 ? 'y' : 'ies'} hidden by explorer limit`,
+        'group',
+        vscode.TreeItemCollapsibleState.None,
+      );
+      hidden.id = `${uri.toString()}#batch-${batch.header.line}-hidden-entries`;
+      hidden.iconPath = new vscode.ThemeIcon('ellipsis');
+      hidden.tooltip = 'Increase nachaFileParser.explorerEntryLimit to display more entries.';
+      node.add(hidden);
     }
     if (batch.orphanRecords.length > 0) {
       const group = new AchExplorerNode('Unattached Batch Records', 'group', vscode.TreeItemCollapsibleState.Collapsed);

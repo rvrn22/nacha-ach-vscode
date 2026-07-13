@@ -46,8 +46,8 @@
     ],
     "commands": [
       {
-        "command": "nacha-file-parser.helloWorld",
-        "title": "Hello World"
+        "command": "nacha-file-parser.showFileSummary",
+        "title": "ACH: Show File Summary"
       },
       {
         "command": "nacha-file-parser.refreshExplorer",
@@ -209,6 +209,56 @@
             }
           }
         },
+        "nachaFileParser.rowColoring": {
+          "type": "string",
+          "enum": ["batches", "recordTypes"],
+          "default": "batches",
+          "description": "Colors rows by alternating batch or by ACH record type."
+        },
+        "nachaFileParser.recordTypeColors": {
+          "type": "object",
+          "default": {},
+          "description": "Optional background-color overrides for ACH record types.",
+          "properties": {
+            "1": { "type": "string", "format": "color-hex" },
+            "5": { "type": "string", "format": "color-hex" },
+            "6": { "type": "string", "format": "color-hex" },
+            "7": { "type": "string", "format": "color-hex" },
+            "8": { "type": "string", "format": "color-hex" },
+            "9": { "type": "string", "format": "color-hex" }
+          },
+          "additionalProperties": false
+        },
+        "nachaFileParser.batchRowColors": {
+          "type": "array",
+          "default": [],
+          "minItems": 0,
+          "items": { "type": "string", "format": "color-hex" },
+          "description": "Optional alternating batch background colors; provide at least two to override the theme defaults."
+        },
+        "nachaFileParser.fieldColors": {
+          "type": "array",
+          "default": [],
+          "minItems": 0,
+          "items": { "type": "string", "format": "color-hex" },
+          "description": "Optional alternating field text colors; provide at least two to override the theme defaults."
+        },
+        "nachaFileParser.paddingRowColor": {
+          "type": ["string", "null"],
+          "default": null,
+          "format": "color-hex",
+          "description": "Optional padding-record background color."
+        },
+        "nachaFileParser.showRecordTypeLabels": {
+          "type": "boolean",
+          "default": true,
+          "description": "Shows textual record-type labels after column 94 so record meaning does not depend on color."
+        },
+        "nachaFileParser.accessibleFieldBoundaries": {
+          "type": "boolean",
+          "default": false,
+          "description": "Adds dotted underlines to alternating fields; enabled automatically in high-contrast themes."
+        },
         "nachaFileParser.maskSensitiveValues": {
           "type": "boolean",
           "default": true,
@@ -228,6 +278,27 @@
           "type": "boolean",
           "default": true,
           "description": "Detects high-confidence ACH content in .txt files and offers ACH language mode."
+        },
+        "nachaFileParser.validationDebounceMs": {
+          "type": "number",
+          "default": 150,
+          "minimum": 0,
+          "maximum": 2000,
+          "description": "Delay before reparsing an actively edited ACH document."
+        },
+        "nachaFileParser.explorerEntryLimit": {
+          "type": "integer",
+          "default": 1000,
+          "minimum": 0,
+          "maximum": 10000,
+          "description": "Maximum Entry nodes materialized in the Decoded ACH explorer; totals still include the full file."
+        },
+        "nachaFileParser.maxDiagnostics": {
+          "type": "integer",
+          "default": 1000,
+          "minimum": 1,
+          "maximum": 10000,
+          "description": "Maximum ACH diagnostics shown in VS Code Problems; reports and CLI output remain complete."
         }
       }
     }

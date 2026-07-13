@@ -27,7 +27,7 @@ A professional Visual Studio Code extension for developers and treasury professi
 - **Expandable Hierarchy**: Browse files as batches, entries, addenda, records, and fields from the Explorer sidebar.
 - **Raw and Decoded Values**: See fixed-width values beside formatted amounts, dates, transaction codes, service classes, and SEC descriptions.
 - **Synchronized Navigation**: Selecting a decoded field reveals its exact raw characters, while moving the editor cursor selects the matching explorer field.
-- **Privacy by Default**: Account numbers and individual identifiers are masked unless explicitly enabled in settings.
+- **Privacy by Default**: Account, company/originator, and individual identifiers are masked unless explicitly enabled in settings.
 - **Validation Context**: File, batch, entry, record, and field nodes show error/warning badges and aggregate totals.
 
 ### 🧱 Navigation and Reading Aids
@@ -57,6 +57,15 @@ A professional Visual Studio Code extension for developers and treasury professi
 ### ⚙️ Highly Customizable
 - **Color Picker Support**: Choose your own colors for every record type (1-9) directly in the VS Code Settings UI.
 - **Theme Friendly**: Supports standardized 8-character hex colors (#rrggbbaa) for transparency.
+
+### ♿ Accessible and Large-File Friendly
+- **Non-Color Labels**: Textual record labels appear after column 94, so record meaning never depends on color alone.
+- **High-Contrast Boundaries**: High-contrast themes automatically add dotted field boundaries; the option is also independently configurable.
+- **Debounced Analysis**: Active edits wait briefly before triggering full validation.
+- **Viewport Rendering**: Field decorations and record labels are limited to the visible editor region plus a buffer.
+- **Bounded UI Trees**: The explorer limits materialized Entry nodes while totals and validation continue to cover the complete file.
+- **Bounded Problems**: VS Code Problems can be capped while JSON, SARIF, and CLI results remain complete.
+- **Performance Regression**: The automated suite parses, validates, and summarizes a 10,000-entry ACH file.
 
 ## Usage
 
@@ -107,14 +116,20 @@ This extension contributes the following settings:
 * `nachaFileParser.validationProfile`: Select the built-in `nacha`/`unblocked` profile or a custom named profile.
 * `nachaFileParser.validationProfiles`: Define named institution/operator profiles.
 * `nachaFileParser.ruleOverrides`: Override exact rules, categories, or all rules with a severity and explanation.
-* `nachaFileParser.maskSensitiveValues`: Mask account numbers and individual identifiers in the Decoded ACH explorer (enabled by default).
-* `nachaFileParser.showColumnRuler`: Show the fixed-width boundary at column 94 (enabled by default).
-* `nachaFileParser.showFieldInlayHints`: Show field names directly at fixed-width boundaries (disabled by default).
-* `nachaFileParser.detectAchInTextFiles`: Offer ACH language mode for high-confidence `.txt` files (enabled by default).
+* `nachaFileParser.rowColoring`: Color complete batches or individual record types.
 * `nachaFileParser.recordTypeColors`: Customize background colors for each record type (1-9).
 * `nachaFileParser.batchRowColors`: Colors for alternating batches.
 * `nachaFileParser.fieldColors`: Text colors for alternating fields.
 * `nachaFileParser.paddingRowColor`: Color for blocking/filler records.
+* `nachaFileParser.showRecordTypeLabels`: Show textual record labels after column 94 (enabled by default).
+* `nachaFileParser.accessibleFieldBoundaries`: Add non-color field boundaries (automatic in high-contrast themes).
+* `nachaFileParser.maskSensitiveValues`: Mask account numbers and individual identifiers in the Decoded ACH explorer (enabled by default).
+* `nachaFileParser.showColumnRuler`: Show the fixed-width boundary at column 94 (enabled by default).
+* `nachaFileParser.showFieldInlayHints`: Show field names directly at fixed-width boundaries (disabled by default).
+* `nachaFileParser.detectAchInTextFiles`: Offer ACH language mode for high-confidence `.txt` files (enabled by default).
+* `nachaFileParser.validationDebounceMs`: Configure the edit-to-validation delay.
+* `nachaFileParser.explorerEntryLimit`: Limit Entry nodes rendered in the Decoded ACH explorer.
+* `nachaFileParser.maxDiagnostics`: Limit Problems entries without limiting reports or CLI results.
 
 ## Installation
 

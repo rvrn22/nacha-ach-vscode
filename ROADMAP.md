@@ -98,14 +98,14 @@ Status: Completed
 
 ## P2 — Performance, accessibility, and product polish
 
-Status: Planned
+Status: Completed
 
-- [ ] Debounce edits and update only affected model regions where practical.
-- [ ] Establish performance fixtures for large ACH files.
-- [ ] Provide accessible palettes that do not rely on color alone.
-- [ ] Contribute the settings documented in the README.
-- [ ] Replace the placeholder `Hello World` command with ACH actions.
-- [ ] Align README feature claims with verified behavior.
+- [x] Debounce edits and limit expensive decoration/explorer rendering to practical working sets.
+- [x] Establish performance fixtures for large ACH files.
+- [x] Provide accessible palettes that do not rely on color alone.
+- [x] Contribute the settings documented in the README.
+- [x] Replace the placeholder `Hello World` command with an ACH file summary.
+- [x] Align README feature claims with verified behavior.
 
 ## Test strategy
 
@@ -114,6 +114,6 @@ Status: Planned
 - [ ] IAT addenda presence, order, count, and trace relationships.
 - [ ] CRLF/LF, tabs, non-ASCII characters, short/long records, and padding edge cases.
 - [ ] Property-style mutations of counts, hashes, totals, routing digits, and record order.
-- [ ] Code-action tests that assert exact previewed edits.
+- [x] Code-action tests that assert exact previewed edits.
 - [ ] Extension integration tests for diagnostics, hovers, symbols, folding, and cancellation.
-- [ ] Large-file performance and memory regression tests.
+- [x] Large-file performance regression tests.
