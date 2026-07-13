@@ -118,11 +118,23 @@ Status: Completed
 - [x] Relate, highlight, and safely synchronize the complete 15-digit addenda trace.
 - [x] Add valid and targeted-invalid regression coverage for Return and NOC workflows.
 
+## Post-roadmap — Reversal awareness
+
+Status: Completed
+
+- [x] Classify reversal batches from the standardized uppercase `REVERSAL` description.
+- [x] Surface reversal batches and entry counts in the explorer, summaries, and reports.
+- [x] Validate unambiguous description formatting and incompatible transaction kinds.
+- [x] Provide a deterministic fix for reversal description casing and padding.
+- [x] Avoid unverifiable claims about the absent original entry or banking-day timing.
+- [x] Add valid, invalid, fix, summary, and explorer regression coverage.
+
 ## Test strategy
 
 - [ ] Golden valid/invalid fixtures for every supported SEC code.
 - [ ] Returns, NOCs, reversals, prenotes, balanced/unbalanced files, and zero-dollar entries.
   - [x] Returns and NOCs.
+  - [x] Reversals.
 - [ ] IAT addenda presence, order, count, and trace relationships.
 - [ ] CRLF/LF, tabs, non-ASCII characters, short/long records, and padding edge cases.
 - [ ] Property-style mutations of counts, hashes, totals, routing digits, and record order.

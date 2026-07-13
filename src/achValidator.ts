@@ -392,6 +392,32 @@ function validateBatchHeader(batch: AchBatch, context: ValidationContext): void 
   }
 }
 
+function validateReversalBatch(batch: AchBatch, context: ValidationContext): void {
+  const rawDescription = batch.header.raw.substring(53, 63);
+  const description = rawDescription.trim();
+  if (description.toUpperCase() === 'REVERSAL' && description !== 'REVERSAL') {
+    context.add(batch.header, 53, 63, 'ACH-REVERSAL-DESCRIPTION', 'field', 'A reversal batch must use uppercase REVERSAL in the Company Entry Description field', {
+      expected: 'REVERSAL  ',
+      actual: rawDescription,
+    });
+    return;
+  }
+  if (!batch.isReversal) { return; }
+
+  for (const entry of batch.entries) {
+    if (entry.detail.raw.length !== 94) { continue; }
+    const transactionCode = entry.detail.raw.substring(1, 3);
+    const rule = transactionCodes.get(transactionCode);
+    if (rule && rule.kind !== 'payment') {
+      context.add(entry.detail, 1, 3, 'ACH-REVERSAL-TRANSACTION-KIND', 'sec', 'A reversal batch must contain payment transaction codes, not Return, prenote, zero-dollar, or settlement entries', {
+        expected: 'payment transaction code',
+        actual: `${transactionCode} (${rule.kind})`,
+        related: [related(batch.header, 53, 63, 'REVERSAL Company Entry Description')],
+      });
+    }
+  }
+}
+
 function validateEntry(entry: AchEntry, batch: AchBatch, context: ValidationContext): TransactionCodeRule | undefined {
   const record = entry.detail;
   const transactionCode = record.raw.substring(1, 3);
@@ -805,7 +831,10 @@ function validateFieldsAndRelationships(document: AchDocument, context: Validati
 
   const batchTotals: BatchTotals[] = [];
   for (const batch of document.batches) {
-    if (batch.header.raw.length === 94) { validateBatchHeader(batch, context); }
+    if (batch.header.raw.length === 94) {
+      validateBatchHeader(batch, context);
+      validateReversalBatch(batch, context);
+    }
     const totals = calculateBatchTotals(batch, context);
     batchTotals.push(totals);
     validateBatchControl(batch, totals, context);

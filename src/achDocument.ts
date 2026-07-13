@@ -41,6 +41,8 @@ export type AchEntry = {
 export type AchBatch = {
   header: AchRecord;
   secCode: string;
+  entryDescription: string;
+  isReversal: boolean;
   entries: AchEntry[];
   control?: AchRecord;
   orphanRecords: AchRecord[];
@@ -142,6 +144,9 @@ export function parseAchDocument(text: string): AchDocument {
         const batch: AchBatch = {
           header: record,
           secCode: record.secCode,
+          entryDescription: raw.substring(53, 63).trim(),
+          // Nacha requires uppercase REVERSAL in Company Entry Description.
+          isReversal: raw.substring(53, 63).trim() === 'REVERSAL',
           entries: [],
           orphanRecords: [],
           records: [record],

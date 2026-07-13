@@ -1,7 +1,7 @@
 export type AchDiagnosticSeverity = 0 | 1 | 2 | 3;
 export type AchRuleSeverityName = 'error' | 'warning' | 'information' | 'hint' | 'off';
 
-export const ACH_RULESET_VERSION = '2026.07.2';
+export const ACH_RULESET_VERSION = '2026.07.3';
 
 export type AchRuleCategory =
   | 'physical'

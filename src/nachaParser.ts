@@ -17,6 +17,8 @@ export { validateAch, validateAch as parseAch } from './achValidator';
 export type AchSummary = {
   batches: number;
   entries: number;
+  reversalBatches: number;
+  reversalEntries: number;
   totalDebitCents: bigint;
   totalCreditCents: bigint;
   netAmountCents: bigint;
@@ -48,6 +50,9 @@ export function parseAchSummary(input: string | AchDocument): AchSummary {
   return {
     batches: document.batches.length,
     entries,
+    reversalBatches: document.batches.filter(batch => batch.isReversal).length,
+    reversalEntries: document.batches.filter(batch => batch.isReversal)
+      .reduce((count, batch) => count + batch.entries.length, 0),
     totalDebitCents,
     totalCreditCents,
     netAmountCents: totalCreditCents - totalDebitCents,

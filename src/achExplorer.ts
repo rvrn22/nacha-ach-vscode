@@ -142,7 +142,8 @@ export class AchExplorerProvider implements vscode.TreeDataProvider<AchExplorerN
     const fileNode = new AchExplorerNode(fileName, 'file', vscode.TreeItemCollapsibleState.Expanded);
     fileNode.id = `${uri.toString()}#file`;
     fileNode.iconPath = new vscode.ThemeIcon('file-binary');
-    const summaryText = `${summary.batches} batches · ${summary.entries} entries · $${formatAchCents(summary.totalCreditCents)} CR · $${formatAchCents(summary.totalDebitCents)} DR`;
+    const reversalText = summary.reversalBatches > 0 ? ` · ${summary.reversalEntries} reversal entries` : '';
+    const summaryText = `${summary.batches} batches · ${summary.entries} entries${reversalText} · $${formatAchCents(summary.totalCreditCents)} CR · $${formatAchCents(summary.totalDebitCents)} DR`;
     addDiagnosticBadge(fileNode, diagnostics, summaryText);
 
     for (const header of document.fileHeaders) {
@@ -196,9 +197,10 @@ export class AchExplorerProvider implements vscode.TreeDataProvider<AchExplorerN
   ): AchExplorerNode {
     const batchNumber = trimmed(batch.header, 87, 94) || String(index + 1);
     const secCode = batch.secCode || 'Unknown SEC';
-    const node = new AchExplorerNode(`Batch ${batchNumber} · ${secCode}`, 'batch', vscode.TreeItemCollapsibleState.Collapsed);
+    const purpose = batch.isReversal ? ' · REVERSAL' : '';
+    const node = new AchExplorerNode(`Batch ${batchNumber} · ${secCode}${purpose}`, 'batch', vscode.TreeItemCollapsibleState.Collapsed);
     node.id = `${uri.toString()}#batch-${batch.header.line}`;
-    node.iconPath = new vscode.ThemeIcon('layers');
+    node.iconPath = new vscode.ThemeIcon(batch.isReversal ? 'discard' : 'layers');
     setSourceCommand(node, uri, batch.header.line, 0, batch.header.raw.length);
     const amounts = batchAmounts(batch);
     const amountDescription = `$${formatAchCents(amounts.credit)} CR · $${formatAchCents(amounts.debit)} DR`;
