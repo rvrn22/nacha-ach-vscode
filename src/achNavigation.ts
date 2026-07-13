@@ -209,11 +209,12 @@ export function findRelatedAchRanges(document: AchDocument, line: number, charac
   const ranges: AchSourceRange[] = [field.range];
 
   if (record.kind === 'fileControl') {
+    const advFile = document.batches.some(batch => batch.secCode === 'ADV');
     const aggregateMappings: Array<[number, number, number, number]> = [
       [13, 21, 4, 10],
       [21, 31, 10, 20],
-      [31, 43, 20, 32],
-      [43, 55, 32, 44],
+      advFile ? [31, 51, 20, 40] : [31, 43, 20, 32],
+      advFile ? [51, 71, 40, 60] : [43, 55, 32, 44],
     ];
     for (const [fileStart, fileEnd, batchStart, batchEnd] of aggregateMappings) {
       if (contains(character, fileStart, fileEnd)) {
@@ -232,10 +233,10 @@ export function findRelatedAchRanges(document: AchDocument, line: number, charac
     if (!inBatch) { continue; }
     const pairs: Array<[number, number, number, number]> = [
       [1, 4, 1, 4],
-      [40, 50, 44, 54],
       [79, 87, 79, 87],
       [87, 94, 87, 94],
     ];
+    if (batch.secCode !== 'ADV') { pairs.push([40, 50, 44, 54]); }
     for (const [headerStart, headerEnd, controlStart, controlEnd] of pairs) {
       if (record.line === batch.header.line && contains(character, headerStart, headerEnd) && batch.control) {
         addUnique(ranges, sourceRange(batch.control, controlStart, controlEnd));
@@ -249,8 +250,8 @@ export function findRelatedAchRanges(document: AchDocument, line: number, charac
       const fileMappings: Array<[number, number, number, number]> = [
         [4, 10, 13, 21],
         [10, 20, 21, 31],
-        [20, 32, 31, 43],
-        [32, 44, 43, 55],
+        batch.secCode === 'ADV' ? [20, 40, 31, 51] : [20, 32, 31, 43],
+        batch.secCode === 'ADV' ? [40, 60, 51, 71] : [32, 44, 43, 55],
       ];
       for (const [batchStart, batchEnd, fileStart, fileEnd] of fileMappings) {
         if (contains(character, batchStart, batchEnd)) {

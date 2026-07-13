@@ -2,6 +2,7 @@ import type { AchBatch, AchDocument, AchEntry, AchRecord } from './achDocument';
 import { parseAchDocument } from './achDocument';
 import {
   allowedAddendaTypesForSec,
+  entryAmountRangeForSec,
   knownSecCodes,
   maximumAddendaForSec,
   isPrenoteTransaction,
@@ -364,8 +365,13 @@ function validateFileHeader(record: AchRecord, context: ValidationContext): void
 function validateBatchHeader(batch: AchBatch, context: ValidationContext): void {
   const record = batch.header;
   const serviceClass = record.raw.substring(1, 4);
-  if (!['200', '220', '225'].includes(serviceClass)) {
-    context.add(record, 1, 4, 'ACH-FIELD-SERVICE-CLASS', 'field', 'Service Class Code must be 200, 220, or 225', { expected: '200, 220, or 225', actual: serviceClass });
+  if (!['200', '220', '225', '280'].includes(serviceClass)) {
+    context.add(record, 1, 4, 'ACH-FIELD-SERVICE-CLASS', 'field', 'Service Class Code must be 200, 220, 225, or 280', { expected: '200, 220, 225, or 280', actual: serviceClass });
+  }
+  if (batch.secCode === 'ADV' && serviceClass !== '280') {
+    context.add(record, 1, 4, 'ACH-ADV-SERVICE-CLASS', 'sec', 'ADV batches require Service Class Code 280', { expected: '280', actual: serviceClass });
+  } else if (batch.secCode !== 'ADV' && serviceClass === '280') {
+    context.add(record, 1, 4, 'ACH-ADV-SERVICE-CLASS', 'sec', 'Service Class Code 280 is valid only for ADV batches', { expected: '200, 220, or 225', actual: serviceClass });
   }
   if (record.raw.substring(40, 50).trim().length === 0) {
     context.add(record, 40, 50, 'ACH-FIELD-COMPANY-ID-REQUIRED', 'field', 'Company Identification is required');
@@ -444,7 +450,8 @@ function validateMicroEntries(document: AchDocument, context: ValidationContext)
     for (const entry of batch.entries) {
       if (entry.detail.raw.length !== 94) { continue; }
       const rule = transactionCodes.get(entry.detail.raw.substring(1, 3));
-      const amount = parseBigInt(entry.detail.raw.substring(29, 39));
+      const [amountStart, amountEnd] = entryAmountRangeForSec(batch.secCode);
+      const amount = parseBigInt(entry.detail.raw.substring(amountStart, amountEnd));
       if (!rule || amount === undefined) { continue; }
       if (rule.kind !== 'payment') {
         context.add(entry.detail, 1, 3, 'ACH-MICRO-TRANSACTION-KIND', 'sec', 'Micro-Entries must use live payment transaction codes', {
@@ -551,6 +558,37 @@ function validateSecEntryFields(
   }
 }
 
+function validateAdvEntry(record: AchRecord, batch: AchBatch, context: ValidationContext): void {
+  if (record.raw.substring(12, 27).trim().length === 0) {
+    context.add(record, 12, 27, 'ACH-ADV-ACCOUNT-REQUIRED', 'sec', 'DFI Account Number is required for an ADV entry');
+  }
+  const adviceRouting = record.raw.substring(39, 48);
+  if (!/^\d{9}$/.test(adviceRouting)) {
+    context.add(record, 39, 48, 'ACH-ADV-ADVICE-ROUTING', 'field', 'ADV Advice Routing Number must contain 9 digits', { actual: adviceRouting });
+  } else {
+    const expected = String(calculateCheckDigit(adviceRouting.substring(0, 8)));
+    if (adviceRouting.charAt(8) !== expected) {
+      context.add(record, 47, 48, 'ACH-ADV-ADVICE-ROUTING-CHECK-DIGIT', 'field', `ADV Advice Routing Number check digit should be ${expected}`, { expected, actual: adviceRouting.charAt(8) });
+    }
+  }
+  if (record.raw.substring(54, 76).trim().length === 0) {
+    context.add(record, 54, 76, 'ACH-ADV-INDIVIDUAL-NAME-REQUIRED', 'sec', 'Individual Name is required for an ADV entry');
+  }
+  const operatorRouting = record.raw.substring(79, 87);
+  if (!/^\d{8}$/.test(operatorRouting)) {
+    context.add(record, 79, 87, 'ACH-ADV-OPERATOR-ROUTING', 'field', 'ADV Routing Number of ACH Operator must contain 8 digits', { actual: operatorRouting });
+  }
+  const julian = record.raw.substring(87, 90);
+  if (!/^\d{3}$/.test(julian) || Number(julian) < 1 || Number(julian) > 366) {
+    context.add(record, 87, 90, 'ACH-ADV-JULIAN-DATE', 'field', 'ADV Advice Creation Julian Date must be between 001 and 366', { expected: '001-366', actual: julian });
+  }
+  const sequence = record.raw.substring(90, 94);
+  const expectedSequence = String(batch.entries.findIndex(entry => entry.detail === record) + 1).padStart(4, '0');
+  if (!/^\d{4}$/.test(sequence) || sequence !== expectedSequence) {
+    context.add(record, 90, 94, 'ACH-ADV-SEQUENCE', 'relational', 'ADV Sequence Number Within Batch must be consecutive beginning with 0001', { expected: expectedSequence, actual: sequence });
+  }
+}
+
 function validateEntry(entry: AchEntry, batch: AchBatch, context: ValidationContext): TransactionCodeRule | undefined {
   const record = entry.detail;
   const transactionCode = record.raw.substring(1, 3);
@@ -564,17 +602,18 @@ function validateEntry(entry: AchEntry, batch: AchBatch, context: ValidationCont
     }
   }
 
-  const amountRaw = record.raw.substring(29, 39);
+  const [amountStart, amountEnd] = entryAmountRangeForSec(batch.secCode);
+  const amountRaw = record.raw.substring(amountStart, amountEnd);
   const amount = parseBigInt(amountRaw);
   if (amount === undefined) {
-    context.add(record, 29, 39, 'ACH-FIELD-AMOUNT-NUMERIC', 'field', 'Amount must contain 10 digits', { actual: amountRaw });
+    context.add(record, amountStart, amountEnd, 'ACH-FIELD-AMOUNT-NUMERIC', 'field', `Amount must contain ${amountEnd - amountStart} digits`, { actual: amountRaw });
   } else if (rule && ['prenote', 'zeroDollar'].includes(rule.kind) && amount !== 0n) {
     const prenote = isPrenoteTransaction(rule, batch.secCode);
     const zeroDollar = isZeroDollarTransaction(rule, batch.secCode);
     context.add(
       record,
-      29,
-      39,
+      amountStart,
+      amountEnd,
       prenote ? 'ACH-PRENOTE-AMOUNT-ZERO' : zeroDollar ? 'ACH-ZERO-DOLLAR-AMOUNT' : 'ACH-FIELD-NONMONETARY-AMOUNT',
       'field',
       `${prenote ? 'Prenotification entry' : zeroDollar ? 'Zero-dollar entry' : rule.description} must have a zero amount`,
@@ -593,17 +632,21 @@ function validateEntry(entry: AchEntry, batch: AchBatch, context: ValidationCont
     }
   }
 
-  const trace = record.raw.substring(79, 94);
-  if (!/^\d{15}$/.test(trace)) {
-    context.add(record, 79, 94, 'ACH-FIELD-TRACE-NUMBER', 'field', 'Trace Number must contain 15 digits');
+  if (batch.secCode === 'ADV') {
+    validateAdvEntry(record, batch, context);
   } else {
-    const odfi = batch.header.raw.substring(79, 87);
-    if (trace.substring(0, 8) !== odfi) {
-      context.add(record, 79, 87, 'ACH-RELATION-TRACE-ODFI', 'relational', 'The first 8 trace digits must match the batch Originating DFI Identification', {
-        expected: odfi,
-        actual: trace.substring(0, 8),
-        related: [related(batch.header, 79, 87, 'Originating DFI Identification')],
-      });
+    const trace = record.raw.substring(79, 94);
+    if (!/^\d{15}$/.test(trace)) {
+      context.add(record, 79, 94, 'ACH-FIELD-TRACE-NUMBER', 'field', 'Trace Number must contain 15 digits');
+    } else {
+      const odfi = batch.header.raw.substring(79, 87);
+      if (trace.substring(0, 8) !== odfi) {
+        context.add(record, 79, 87, 'ACH-RELATION-TRACE-ODFI', 'relational', 'The first 8 trace digits must match the batch Originating DFI Identification', {
+          expected: odfi,
+          actual: trace.substring(0, 8),
+          related: [related(batch.header, 79, 87, 'Originating DFI Identification')],
+        });
+      }
     }
   }
 
@@ -895,7 +938,8 @@ function calculateBatchTotals(batch: AchBatch, context: ValidationContext): Batc
     } else {
       hash += rdfi;
     }
-    const amount = parseBigInt(entry.detail.raw.substring(29, 39));
+    const [amountStart, amountEnd] = entryAmountRangeForSec(batch.secCode);
+    const amount = parseBigInt(entry.detail.raw.substring(amountStart, amountEnd));
     if (amount === undefined || !rule) {
       amountsValid = false;
     } else if (rule.direction === 'credit') {
@@ -940,26 +984,32 @@ function compareHeaderControl(
 function validateBatchControl(batch: AchBatch, totals: BatchTotals, context: ValidationContext): void {
   const control = batch.control;
   if (!control || control.raw.length !== 94) { return; }
+  const adv = batch.secCode === 'ADV';
+  const debitRange: readonly [number, number] = adv ? [20, 40] : [20, 32];
+  const creditRange: readonly [number, number] = adv ? [40, 60] : [32, 44];
+  const amountWidth = adv ? 20 : 12;
   const expectedCount = String(totals.count).padStart(6, '0');
   const expectedHash = totals.hashValid ? (totals.hash % 10000000000n).toString().padStart(10, '0') : undefined;
-  const expectedDebit = totals.amountsValid ? totals.debit.toString().padStart(12, '0') : undefined;
-  const expectedCredit = totals.amountsValid ? totals.credit.toString().padStart(12, '0') : undefined;
+  const expectedDebit = totals.amountsValid ? totals.debit.toString().padStart(amountWidth, '0') : undefined;
+  const expectedCredit = totals.amountsValid ? totals.credit.toString().padStart(amountWidth, '0') : undefined;
   for (const [start, end, code, label, expected] of [
     [4, 10, 'ACH-FIELD-BATCH-ENTRY-COUNT', 'Entry/Addenda Count', expectedCount],
     [10, 20, 'ACH-FIELD-BATCH-HASH', 'Entry Hash', expectedHash],
-    [20, 32, 'ACH-FIELD-BATCH-DEBIT', 'Total Debit', expectedDebit],
-    [32, 44, 'ACH-FIELD-BATCH-CREDIT', 'Total Credit', expectedCredit],
+    [debitRange[0], debitRange[1], 'ACH-FIELD-BATCH-DEBIT', 'Total Debit', expectedDebit],
+    [creditRange[0], creditRange[1], 'ACH-FIELD-BATCH-CREDIT', 'Total Credit', expectedCredit],
   ] as const) {
     const value = control.raw.substring(start, end);
     if (!isDigits(value)) {
       context.add(control, start, end, code, 'field', `${label} must be numeric`, { actual: value, expected });
     }
   }
-  if (control.raw.substring(73, 79).trim().length > 0) {
+  if (!adv && control.raw.substring(73, 79).trim().length > 0) {
     context.add(control, 73, 79, 'ACH-FIELD-BATCH-CONTROL-RESERVED', 'field', 'Batch Control reserved field must be blank');
   }
   compareHeaderControl(batch.header, control, 1, 4, 1, 4, 'ACH-RELATION-SERVICE-CLASS', 'Service Class Code', context);
-  compareHeaderControl(batch.header, control, 40, 50, 44, 54, 'ACH-RELATION-COMPANY-ID', 'Company Identification', context);
+  if (!adv) {
+    compareHeaderControl(batch.header, control, 40, 50, 44, 54, 'ACH-RELATION-COMPANY-ID', 'Company Identification', context);
+  }
   compareHeaderControl(batch.header, control, 79, 87, 79, 87, 'ACH-RELATION-ODFI-ID', 'Originating DFI Identification', context);
   compareHeaderControl(batch.header, control, 87, 94, 87, 94, 'ACH-RELATION-BATCH-NUMBER', 'Batch Number', context);
 
@@ -974,13 +1024,13 @@ function validateBatchControl(batch: AchBatch, totals: BatchTotals, context: Val
     }
   }
   if (totals.amountsValid) {
-    const actualDebit = control.raw.substring(20, 32);
-    const actualCredit = control.raw.substring(32, 44);
+    const actualDebit = control.raw.substring(debitRange[0], debitRange[1]);
+    const actualCredit = control.raw.substring(creditRange[0], creditRange[1]);
     if (expectedDebit && isDigits(actualDebit) && actualDebit !== expectedDebit) {
-      context.add(control, 20, 32, 'ACH-RELATION-BATCH-DEBIT', 'relational', 'Batch debit total does not match the calculated total', { expected: expectedDebit, actual: actualDebit });
+      context.add(control, debitRange[0], debitRange[1], 'ACH-RELATION-BATCH-DEBIT', 'relational', 'Batch debit total does not match the calculated total', { expected: expectedDebit, actual: actualDebit });
     }
     if (expectedCredit && isDigits(actualCredit) && actualCredit !== expectedCredit) {
-      context.add(control, 32, 44, 'ACH-RELATION-BATCH-CREDIT', 'relational', 'Batch credit total does not match the calculated total', { expected: expectedCredit, actual: actualCredit });
+      context.add(control, creditRange[0], creditRange[1], 'ACH-RELATION-BATCH-CREDIT', 'relational', 'Batch credit total does not match the calculated total', { expected: expectedCredit, actual: actualCredit });
     }
 
     const serviceClass = batch.header.raw.substring(1, 4);
@@ -996,6 +1046,19 @@ function validateBatchControl(batch: AchBatch, totals: BatchTotals, context: Val
 function validateFileControl(document: AchDocument, batchTotals: BatchTotals[], context: ValidationContext): void {
   const control = document.fileControls[0];
   if (!control || control.raw.length !== 94) { return; }
+  const advBatches = document.batches.filter(batch => batch.secCode === 'ADV');
+  const adv = advBatches.length > 0;
+  if (adv && advBatches.length !== document.batches.length) {
+    const firstNonAdv = document.batches.find(batch => batch.secCode !== 'ADV');
+    context.add(firstNonAdv?.header ?? control, 50, 53, 'ACH-ADV-MIXED-FILE', 'sec', 'ADV batches cannot share a file because ADV uses a distinct File Control amount layout', {
+      expected: 'all ADV batches or no ADV batches',
+      actual: `${advBatches.length} ADV of ${document.batches.length} batches`,
+    });
+  }
+  const debitRange: readonly [number, number] = adv ? [31, 51] : [31, 43];
+  const creditRange: readonly [number, number] = adv ? [51, 71] : [43, 55];
+  const reservedStart = adv ? 71 : 55;
+  const amountWidth = adv ? 20 : 12;
   const expectedBatchCount = String(document.batches.length).padStart(6, '0');
   const physicalRecords = document.lines.filter(line => line.length > 0).length;
   const expectedBlockCount = String(Math.ceil(physicalRecords / 10)).padStart(6, '0');
@@ -1005,10 +1068,10 @@ function validateFileControl(document: AchDocument, batchTotals: BatchTotals[], 
     ? (batchTotals.reduce((sum, totals) => sum + totals.hash, 0n) % 10000000000n).toString().padStart(10, '0')
     : undefined;
   const expectedDebit = batchTotals.every(totals => totals.amountsValid)
-    ? batchTotals.reduce((sum, totals) => sum + totals.debit, 0n).toString().padStart(12, '0')
+    ? batchTotals.reduce((sum, totals) => sum + totals.debit, 0n).toString().padStart(amountWidth, '0')
     : undefined;
   const expectedCredit = batchTotals.every(totals => totals.amountsValid)
-    ? batchTotals.reduce((sum, totals) => sum + totals.credit, 0n).toString().padStart(12, '0')
+    ? batchTotals.reduce((sum, totals) => sum + totals.credit, 0n).toString().padStart(amountWidth, '0')
     : undefined;
 
   for (const [start, end, code, label, expected] of [
@@ -1016,8 +1079,8 @@ function validateFileControl(document: AchDocument, batchTotals: BatchTotals[], 
     [7, 13, 'ACH-FIELD-FILE-BLOCK-COUNT', 'Block Count', expectedBlockCount],
     [13, 21, 'ACH-FIELD-FILE-ENTRY-COUNT', 'Entry/Addenda Count', expectedEntryCount],
     [21, 31, 'ACH-FIELD-FILE-HASH', 'Entry Hash', expectedHash],
-    [31, 43, 'ACH-FIELD-FILE-DEBIT', 'Total Debit', expectedDebit],
-    [43, 55, 'ACH-FIELD-FILE-CREDIT', 'Total Credit', expectedCredit],
+    [debitRange[0], debitRange[1], 'ACH-FIELD-FILE-DEBIT', 'Total Debit', expectedDebit],
+    [creditRange[0], creditRange[1], 'ACH-FIELD-FILE-CREDIT', 'Total Credit', expectedCredit],
   ] as const) {
     const value = control.raw.substring(start, end);
     if (!isDigits(value)) {
@@ -1046,18 +1109,18 @@ function validateFileControl(document: AchDocument, batchTotals: BatchTotals[], 
   }
 
   if (expectedDebit && expectedCredit) {
-    const actualDebit = control.raw.substring(31, 43);
-    const actualCredit = control.raw.substring(43, 55);
+    const actualDebit = control.raw.substring(debitRange[0], debitRange[1]);
+    const actualCredit = control.raw.substring(creditRange[0], creditRange[1]);
     if (isDigits(actualDebit) && actualDebit !== expectedDebit) {
-      context.add(control, 31, 43, 'ACH-RELATION-FILE-DEBIT', 'relational', 'File debit total does not match the calculated total', { expected: expectedDebit, actual: actualDebit });
+      context.add(control, debitRange[0], debitRange[1], 'ACH-RELATION-FILE-DEBIT', 'relational', 'File debit total does not match the calculated total', { expected: expectedDebit, actual: actualDebit });
     }
     if (isDigits(actualCredit) && actualCredit !== expectedCredit) {
-      context.add(control, 43, 55, 'ACH-RELATION-FILE-CREDIT', 'relational', 'File credit total does not match the calculated total', { expected: expectedCredit, actual: actualCredit });
+      context.add(control, creditRange[0], creditRange[1], 'ACH-RELATION-FILE-CREDIT', 'relational', 'File credit total does not match the calculated total', { expected: expectedCredit, actual: actualCredit });
     }
   }
 
-  if (control.raw.substring(55, 94).trim().length > 0) {
-    context.add(control, 55, 94, 'ACH-FIELD-FILE-CONTROL-RESERVED', 'field', 'File Control reserved field must be blank');
+  if (control.raw.substring(reservedStart, 94).trim().length > 0) {
+    context.add(control, reservedStart, 94, 'ACH-FIELD-FILE-CONTROL-RESERVED', 'field', 'File Control reserved field must be blank');
   }
 }
 
@@ -1068,10 +1131,11 @@ function validateNetPosition(document: AchDocument, batchTotals: BatchTotals[], 
   if (debit === credit) { return; }
   const target = document.fileControls[0] ?? document.records.at(-1);
   const fileControl = target?.kind === 'fileControl';
+  const advFile = document.batches.some(batch => batch.secCode === 'ADV');
   context.add(
     target,
     fileControl ? 31 : 0,
-    fileControl ? 55 : target?.raw.length ?? 0,
+    fileControl ? (advFile ? 71 : 55) : target?.raw.length ?? 0,
     'ACH-PROFILE-NET-ZERO',
     'relational',
     `${context.profile.displayName} requires total debits and credits to net to zero`,
@@ -1080,7 +1144,7 @@ function validateNetPosition(document: AchDocument, batchTotals: BatchTotals[], 
       actual: `${credit - debit} cents`,
       related: document.batches
         .filter(batch => batch.control)
-        .map(batch => related(batch.control!, 20, 44, 'Batch debit and credit totals')),
+        .map(batch => related(batch.control!, 20, batch.secCode === 'ADV' ? 60 : 44, 'Batch debit and credit totals')),
     },
   );
 }

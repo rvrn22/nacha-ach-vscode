@@ -1,5 +1,5 @@
 import { parseAchDocument, type AchDocument } from './achDocument';
-import { transactionCodes } from './achRules';
+import { entryAmountRangeForSec, transactionCodes } from './achRules';
 
 export type {
   AchDiagnostic,
@@ -42,8 +42,9 @@ export function parseAchSummary(input: string | AchDocument): AchSummary {
     for (const entry of batch.entries) {
       entries++;
       const rule = transactionCodes.get(entry.detail.raw.substring(1, 3));
-      const amountRaw = entry.detail.raw.substring(29, 39);
-      if (!rule || !/^\d{10}$/.test(amountRaw)) {
+      const [amountStart, amountEnd] = entryAmountRangeForSec(batch.secCode);
+      const amountRaw = entry.detail.raw.substring(amountStart, amountEnd);
+      if (!rule || !/^\d+$/.test(amountRaw) || amountRaw.length !== amountEnd - amountStart) {
         continue;
       }
       const amount = BigInt(amountRaw);

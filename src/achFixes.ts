@@ -111,7 +111,11 @@ function unambiguousRecordPaddingEdit(document: AchDocument, diagnostic: AchDiag
   if (diagnostic.code !== 'ACH-PHYSICAL-RECORD-LENGTH') { return undefined; }
   const record = document.recordByLine.get(diagnostic.line);
   if (!record || record.raw.length >= 94) { return undefined; }
-  const safeMinimum = record.kind === 'fileHeader' ? 86 : record.kind === 'fileControl' ? 55 : undefined;
+  const safeMinimum = record.kind === 'fileHeader'
+    ? 86
+    : record.kind === 'fileControl'
+      ? document.batches.some(batch => batch.secCode === 'ADV') ? 71 : 55
+      : undefined;
   if (safeMinimum === undefined || record.raw.length < safeMinimum) { return undefined; }
   return {
     startLine: record.line,
@@ -233,6 +237,20 @@ export function buildSequenceRenumberEdits(document: AchDocument): AchTextEdit[]
     const batchNumber = String(batchIndex + 1).padStart(7, '0');
     addReplacement(edits, batch.header, 87, 94, batchNumber, 'Renumber Batch Header');
     if (batch.control) { addReplacement(edits, batch.control, 87, 94, batchNumber, 'Renumber Batch Control'); }
+
+    if (batch.secCode === 'ADV') {
+      for (let entryIndex = 0; entryIndex < batch.entries.length; entryIndex++) {
+        addReplacement(
+          edits,
+          batch.entries[entryIndex].detail,
+          90,
+          94,
+          String(entryIndex + 1).padStart(4, '0'),
+          'Renumber ADV Sequence Within Batch',
+        );
+      }
+      continue;
+    }
 
     const odfi = batch.header.raw.substring(79, 87);
     if (!/^\d{8}$/.test(odfi)) { continue; }

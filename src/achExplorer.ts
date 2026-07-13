@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { decodeAchField, isSensitiveAchField, maskAchValue } from './achDecode';
 import type { AchBatch, AchDocument, AchEntry, AchField, AchRecord } from './achDocument';
-import { describeTransactionCode, transactionCodes } from './achRules';
+import { describeTransactionCode, entryAmountRangeForSec, transactionCodes } from './achRules';
 import { formatAchCents, type AchSummary } from './nachaParser';
 import type { AchDiagnostic } from './achTypes';
 
@@ -77,8 +77,9 @@ function addDiagnosticBadge(node: AchExplorerNode, diagnostics: AchDiagnostic[],
 }
 
 function entryAmount(entry: AchEntry): string | undefined {
-  const raw = entry.detail.raw.substring(29, 39);
-  return /^\d{10}$/.test(raw) ? `$${formatAchCents(BigInt(raw))}` : undefined;
+  const [start, end] = entryAmountRangeForSec(entry.detail.secCode);
+  const raw = entry.detail.raw.substring(start, end);
+  return /^\d+$/.test(raw) && raw.length === end - start ? `$${formatAchCents(BigInt(raw))}` : undefined;
 }
 
 function entryAccount(entry: AchEntry, maskSensitiveValues: boolean): string | undefined {
@@ -91,9 +92,10 @@ function batchAmounts(batch: AchBatch): { debit: bigint; credit: bigint } {
   let debit = 0n;
   let credit = 0n;
   for (const entry of batch.entries) {
-    const amount = entry.detail.raw.substring(29, 39);
+    const [start, end] = entryAmountRangeForSec(batch.secCode);
+    const amount = entry.detail.raw.substring(start, end);
     const rule = transactionCodes.get(entry.detail.raw.substring(1, 3));
-    if (!rule || !/^\d{10}$/.test(amount)) { continue; }
+    if (!rule || !/^\d+$/.test(amount) || amount.length !== end - start) { continue; }
     if (rule.direction === 'credit') { credit += BigInt(amount); }
     else { debit += BigInt(amount); }
   }
@@ -253,7 +255,9 @@ export class AchExplorerProvider implements vscode.TreeDataProvider<AchExplorerN
     maskSensitiveValues: boolean,
   ): AchExplorerNode {
     const transactionCode = trimmed(entry.detail, 1, 3);
-    const traceSequence = trimmed(entry.detail, 87, 94) || String(index + 1);
+    const traceSequence = entry.detail.secCode === 'ADV'
+      ? trimmed(entry.detail, 90, 94) || String(index + 1)
+      : trimmed(entry.detail, 87, 94) || String(index + 1);
     const description = describeTransactionCode(transactionCode, entry.detail.secCode);
     const node = new AchExplorerNode(`Entry ${traceSequence} · ${description ?? transactionCode}`, 'entry', vscode.TreeItemCollapsibleState.Collapsed);
     node.id = `${uri.toString()}#entry-${entry.detail.line}`;

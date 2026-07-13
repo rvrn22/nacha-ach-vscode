@@ -100,11 +100,17 @@ export const knownSecCodes = new Set([
 const consumerAccountSecCodes = new Set(['ARC', 'BOC', 'CIE', 'MTE', 'POP', 'POS', 'PPD', 'RCK', 'SHR', 'TEL', 'WEB']);
 const zeroDollarSecCodes = new Set(['CCD', 'CTX', 'IAT']);
 const debitOnlySecCodes = new Set(['ARC', 'BOC', 'POP', 'POS', 'RCK', 'TEL']);
-const creditOnlySecCodes = new Set(['ACK', 'ADV', 'ATX', 'CIE', 'DNE', 'ENR']);
+const creditOnlySecCodes = new Set(['ACK', 'ATX', 'CIE', 'DNE', 'ENR']);
 const type05AddendaSecCodes = new Set(['ACK', 'ATX', 'CCD', 'CIE', 'CTX', 'DNE', 'ENR', 'PPD', 'TRX', 'WEB']);
 const type02AddendaSecCodes = new Set(['MTE', 'POS', 'SHR']);
 
 export function transactionCodeCompatibility(rule: TransactionCodeRule, secCode: string): string | undefined {
+  if (secCode === 'ADV' && rule.kind !== 'settlement') {
+    return `ADV entries require an Automated Accounting Advice transaction code from 81 through 88`;
+  }
+  if (rule.kind === 'settlement' && secCode !== 'ADV') {
+    return `Automated Accounting Advice transaction code ${rule.code} is valid only for SEC ADV`;
+  }
   if (secCode === 'COR' && !['21', '26', '41', '46', '51', '56'].includes(rule.code)) {
     return `COR entries require transaction code 21, 26, 41, 46, 51, or 56`;
   }
@@ -124,6 +130,10 @@ export function transactionCodeCompatibility(rule: TransactionCodeRule, secCode:
     return `${secCode} is a credit-only SEC code`;
   }
   return undefined;
+}
+
+export function entryAmountRangeForSec(secCode: string): readonly [start: number, end: number] {
+  return secCode === 'ADV' ? [27, 39] : [29, 39];
 }
 
 export function maximumAddendaForSec(secCode: string): number | undefined {

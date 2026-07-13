@@ -52,6 +52,49 @@ export const iatRecordFields: Record<string, FieldDefinition[]> = {
 };
 
 // Public layout reference: Nacha Operating Rules Basic Appendices,
+// Appendix Three, ACH File Record Format for ADV Entries.
+export const advRecordFields: Record<string, FieldDefinition[]> = {
+  '6': [
+    { start: 0, end: 1, name: 'Record Type Code', description: '6 - ADV Entry Detail Record' },
+    { start: 1, end: 3, name: 'Transaction Code', description: '81-88 Automated Accounting Advice debit or credit classification' },
+    { start: 3, end: 11, name: 'Receiving DFI Identification', description: 'First 8 digits of the receiving DFI routing number' },
+    { start: 11, end: 12, name: 'Check Digit', description: '9th digit of the receiving DFI routing number' },
+    { start: 12, end: 27, name: 'DFI Account Number', description: '15-character account number receiving the advice' },
+    { start: 27, end: 39, name: 'Amount', description: '12-digit summary debit or credit amount in cents' },
+    { start: 39, end: 48, name: 'Advice Routing Number', description: '9-digit routing number of the DFI, Respondent, or Correspondent' },
+    { start: 48, end: 53, name: 'File Identification', description: 'Optional File Creation Date and File ID Modifier reference' },
+    { start: 53, end: 54, name: 'ACH Operator Data', description: 'Optional ACH Operator data' },
+    { start: 54, end: 76, name: 'Individual Name', description: 'Name associated with the accounting advice' },
+    { start: 76, end: 78, name: 'Discretionary Data', description: 'Optional data for specialized handling' },
+    { start: 78, end: 79, name: 'Addenda Record Indicator', description: '0=No addenda, 1=Addenda follows' },
+    { start: 79, end: 87, name: 'Routing Number of ACH Operator', description: '8-digit routing number of the transmitting ACH Operator' },
+    { start: 87, end: 90, name: 'Advice Creation Julian Date', description: '001-366 Julian date on which the advice was created' },
+    { start: 90, end: 94, name: 'Sequence Number Within Batch', description: 'Four-digit sequence beginning with 0001 in each ADV batch' },
+  ],
+  '8': [
+    { start: 0, end: 1, name: 'Record Type Code', description: '8 - ADV Batch Control Record' },
+    { start: 1, end: 4, name: 'Service Class Code', description: '280 - Automated Accounting Advices' },
+    { start: 4, end: 10, name: 'Entry/Addenda Count', description: 'Total entry and addenda records in the ADV batch' },
+    { start: 10, end: 20, name: 'Entry Hash', description: 'Low-order 10 digits of the Receiving DFI Identification sum' },
+    { start: 20, end: 40, name: 'Total Debit Entry Dollar Amount', description: '20-digit accumulated ADV debit amount in cents' },
+    { start: 40, end: 60, name: 'Total Credit Entry Dollar Amount', description: '20-digit accumulated ADV credit amount in cents' },
+    { start: 60, end: 79, name: 'ACH Operator Data', description: 'Optional ACH Operator data' },
+    { start: 79, end: 87, name: 'Originating DFI Identification', description: 'Originating DFI Identification from the Batch Header' },
+    { start: 87, end: 94, name: 'Batch Number', description: 'Batch number from the Batch Header' },
+  ],
+  '9': [
+    { start: 0, end: 1, name: 'Record Type Code', description: '9 - ADV File Control Record' },
+    { start: 1, end: 7, name: 'Batch Count', description: 'Number of ADV batches in the file' },
+    { start: 7, end: 13, name: 'Block Count', description: 'Number of 10-record blocks in the file' },
+    { start: 13, end: 21, name: 'Entry/Addenda Count', description: 'Total ADV entry and addenda records in the file' },
+    { start: 21, end: 31, name: 'Entry Hash', description: 'Low-order 10 digits of the batch Entry Hash sum' },
+    { start: 31, end: 51, name: 'Total Debit Entry Dollar Amount', description: '20-digit accumulated ADV debit amount in cents' },
+    { start: 51, end: 71, name: 'Total Credit Entry Dollar Amount', description: '20-digit accumulated ADV credit amount in cents' },
+    { start: 71, end: 94, name: 'Reserved', description: 'Blank/spaces' },
+  ],
+};
+
+// Public layout reference: Nacha Operating Rules Basic Appendices,
 // Appendix Three, IAT Addenda Records (types 10-18).
 export const addendaIATFields: Record<string, FieldDefinition[]> = {
   '10': [
@@ -315,6 +358,10 @@ export function getFieldsForRecord(recordType: string, line?: string, secCode?: 
       const addendaType = line.substring(1, 3);
       fields = addendaIATFields[addendaType] || recordFields['7'];
     }
+  }
+
+  if (!fields && secCode === 'ADV') {
+    fields = advRecordFields[recordType];
   }
 
   if (!fields && recordType === '6' && secCode) {

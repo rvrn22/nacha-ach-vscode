@@ -20,6 +20,13 @@ A professional Visual Studio Code extension for developers and treasury professi
 - **Readable Payment Types**: Decodes conventional `R`, `S`, and `ST` Payment Type values while preserving other Originator-defined codes.
 - **Sensitive Check Data**: Masks converted-check serial numbers by default in decoded views.
 
+### 🧮 Automated Accounting Advice (ADV)
+- **Distinct Fixed-Width Layouts**: Decodes the ADV Entry Detail, Batch Control, and File Control formats instead of applying standard payment fields.
+- **Accounting Arithmetic**: Uses the 12-digit ADV entry amount and 20-digit batch/file debit and credit totals throughout validation, summaries, navigation, and safe fixes.
+- **ADV Semantics**: Enforces service class `280`, transaction codes `81`–`88`, routing fields, required account/name data, Julian dates, and four-digit within-batch sequences.
+- **Safe Sequence Repair**: Renumbers only the ADV sequence field without overwriting the ACH Operator routing number or advice date.
+- **File Boundary**: Rejects mixing ADV and non-ADV batches because their File Control amount layouts differ.
+
 ### 🌐 Full IAT Support
 - **International Transactions**: Comprehensive support for International ACH Transactions (IAT).
 - **Contextual Parsing**: Switches field definitions automatically when an IAT batch is detected.
@@ -102,7 +109,7 @@ A professional Visual Studio Code extension for developers and treasury professi
 ### 📋 Profiles, Reports, and Automation
 - **Named Profiles**: Define institution/operator profiles that extend strict or unblocked validation behavior.
 - **Explained Overrides**: Change or suppress exact rules, categories, or all rules only with a recorded reason.
-- **Versioned Rules**: Reports identify ruleset version `2026.07.9` independently from the extension version.
+- **Versioned Rules**: Reports identify ruleset version `2026.07.10` independently from the extension version.
 - **Redacted Reports**: Export JSON or SARIF without exposing account numbers and individual identifiers.
 - **Headless CLI**: Run the same parser and validator in CI, scripts, and pre-upload workflows.
 - **Text Detection**: High-confidence ACH content in `.txt` files can switch to ACH language mode with one click.

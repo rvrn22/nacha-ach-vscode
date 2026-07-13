@@ -12,10 +12,12 @@ const serviceClassDescriptions: Record<string, string> = {
   '200': 'Mixed debits and credits',
   '220': 'Credits only',
   '225': 'Debits only',
+  '280': 'Automated Accounting Advices',
 };
 
 const secDescriptions: Record<string, string> = {
   ACK: 'Acknowledgment Entry',
+  ADV: 'Automated Accounting Advice',
   ARC: 'Accounts Receivable Entry',
   ATX: 'Financial EDI Acknowledgment',
   BOC: 'Back Office Conversion',
@@ -83,6 +85,9 @@ export function decodeAchField(record: AchRecord, field: AchField, maskSensitive
     const checkDigit = record.raw.substring(11, 12);
     const routingNumber = /^\d$/.test(checkDigit) ? `${value}${checkDigit}` : value;
     return { display: `${routingNumber} — routing number`, raw, masked: false };
+  }
+  if (field.name === 'Advice Routing Number' && /^\d{9}$/.test(value)) {
+    return { display: `${value} — routing number`, raw, masked: false };
   }
   if (field.name === 'Immediate Destination' && /^\d{9}$/.test(value)) {
     return { display: `${value} — routing number`, raw, masked: false };

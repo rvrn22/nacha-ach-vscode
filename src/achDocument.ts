@@ -134,6 +134,7 @@ export function parseAchDocument(text: string): AchDocument {
 
   let currentBatch: AchBatch | undefined;
   let currentEntry: AchEntry | undefined;
+  let containsAdvBatch = false;
 
   for (let line = 0; line < lines.length; line++) {
     const raw = lines[line];
@@ -141,7 +142,8 @@ export function parseAchDocument(text: string): AchDocument {
       continue;
     }
 
-    const record = createRecord(line, raw, currentBatch?.secCode ?? '');
+    const fileControlContext = raw.charAt(0) === '9' && containsAdvBatch ? 'ADV' : '';
+    const record = createRecord(line, raw, currentBatch?.secCode ?? fileControlContext);
     records.push(record);
     recordByLine.set(line, record);
 
@@ -165,6 +167,7 @@ export function parseAchDocument(text: string): AchDocument {
           records: [record],
         };
         batches.push(batch);
+        containsAdvBatch ||= batch.secCode === 'ADV';
         currentBatch = batch;
         currentEntry = undefined;
         break;

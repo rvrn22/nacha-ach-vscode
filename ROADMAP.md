@@ -201,11 +201,24 @@ Status: Completed
 - [x] Mask converted-check serial numbers in decoded views.
 - [x] Add representative valid and targeted-invalid fixtures for ARC, BOC, RCK, CCD, CTX, PPD, TEL, and WEB.
 
+## Post-roadmap — Automated Accounting Advice support
+
+Status: Completed
+
+- [x] Decode the distinct ADV Entry Detail, Batch Control, and File Control layouts.
+- [x] Support service class 280 and restrict transaction codes 81–88 to ADV entries.
+- [x] Calculate, display, validate, and safely repair 12-digit entry amounts and 20-digit control totals.
+- [x] Validate ADV account/name requirements, routing fields, Julian dates, and within-batch sequences.
+- [x] Prevent mixed ADV/non-ADV files whose File Control layouts would be ambiguous.
+- [x] Preserve ADV Operator routing/date fields during explicit sequence renumbering.
+- [x] Add valid, targeted-invalid, decoding, summary, control-fix, and sequence-fix regression coverage.
+
 ## Test strategy
 
 - [ ] Golden valid/invalid fixtures for every supported SEC code.
   - [x] Common domestic ARC, BOC, RCK, CCD, CTX, PPD, TEL, and WEB layouts.
-  - [ ] Specialized ACK, ADV, ATX, CIE, DNE, ENR, MTE, POS, SHR, and TRX layouts.
+  - [x] Specialized ADV layout.
+  - [ ] Specialized ACK, ATX, CIE, DNE, ENR, MTE, POS, SHR, and TRX layouts.
 - [ ] Returns, NOCs, reversals, prenotes, balanced/unbalanced files, and zero-dollar entries.
   - [x] Returns and NOCs.
   - [x] Reversals.
