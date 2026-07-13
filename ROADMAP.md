@@ -165,6 +165,19 @@ Status: Completed
 - [x] Avoid claiming that arithmetic equality identifies a settlement offset entry.
 - [x] Add net position, profile, explorer, and report regression coverage.
 
+## Post-roadmap — Micro-Entry awareness
+
+Status: Completed
+
+- [x] Classify batches and entries using the standardized `ACCTVERIFY` description.
+- [x] Validate uppercase description formatting, live transaction kinds, and 1–99 cent credits.
+- [x] Group entries by originator and receiver account for offset review.
+- [x] Warn about apparent net-debit and effective-date issues without assuming cross-file pairing.
+- [x] Provide a deterministic description-casing fix.
+- [x] Surface Micro-Entry counts in summaries, explorer, and reports.
+- [x] Document Company Name, cross-file timing, verification completion, and fraud-monitoring boundaries.
+- [x] Add valid, invalid, split-batch, fix, explorer, and report regression coverage.
+
 ## Test strategy
 
 - [ ] Golden valid/invalid fixtures for every supported SEC code.

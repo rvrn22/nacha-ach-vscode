@@ -46,6 +46,7 @@ export type AchEntry = {
   transactionKind: ContextualTransactionKind | 'unknown';
   isPrenote: boolean;
   isZeroDollar: boolean;
+  isMicroEntry: boolean;
 };
 
 export type AchBatch = {
@@ -53,6 +54,7 @@ export type AchBatch = {
   secCode: string;
   entryDescription: string;
   isReversal: boolean;
+  isMicroEntry: boolean;
   entries: AchEntry[];
   control?: AchRecord;
   orphanRecords: AchRecord[];
@@ -157,6 +159,7 @@ export function parseAchDocument(text: string): AchDocument {
           entryDescription: raw.substring(53, 63).trim(),
           // Nacha requires uppercase REVERSAL in Company Entry Description.
           isReversal: raw.substring(53, 63).trim() === 'REVERSAL',
+          isMicroEntry: raw.substring(53, 63).trim() === 'ACCTVERIFY',
           entries: [],
           orphanRecords: [],
           records: [record],
@@ -177,6 +180,7 @@ export function parseAchDocument(text: string): AchDocument {
             transactionKind: contextualTransactionKind(transaction, currentBatch.secCode),
             isPrenote: isPrenoteTransaction(transaction, currentBatch.secCode),
             isZeroDollar: isZeroDollarTransaction(transaction, currentBatch.secCode),
+            isMicroEntry: currentBatch.isMicroEntry,
           };
           currentBatch.entries.push(entry);
           currentBatch.records.push(record);

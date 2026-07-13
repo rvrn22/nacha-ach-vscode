@@ -145,6 +145,7 @@ export function activate(context: vscode.ExtensionContext) {
 			{ label: '$(arrow-swap) Reversal Entries', description: String(analysis.summary.reversalEntries) },
 			{ label: '$(preview) Prenotification Entries', description: String(analysis.summary.prenoteEntries) },
 			{ label: '$(symbol-constant) Zero-Dollar Entries', description: String(analysis.summary.zeroDollarEntries) },
+			{ label: '$(verified) Micro-Entries', description: String(analysis.summary.microEntries) },
 			{ label: '$(arrow-up) Credits', description: `$${formatAchCents(analysis.summary.totalCreditCents)}` },
 			{ label: '$(arrow-down) Debits', description: `$${formatAchCents(analysis.summary.totalDebitCents)}` },
 			{ label: '$(diff) Net Amount', description: `$${formatAchCents(analysis.summary.netAmountCents)}` },

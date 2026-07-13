@@ -420,6 +420,88 @@ function validateReversalBatch(batch: AchBatch, context: ValidationContext): voi
   }
 }
 
+function validateMicroEntries(document: AchDocument, context: ValidationContext): void {
+  type Candidate = {
+    batch: AchBatch;
+    entry: AchEntry;
+    amount: bigint;
+    direction: 'credit' | 'debit';
+  };
+  const groups = new Map<string, Candidate[]>();
+
+  for (const batch of document.batches) {
+    const rawDescription = batch.header.raw.substring(53, 63);
+    const description = rawDescription.trim();
+    const microLike = description.toUpperCase() === 'ACCTVERIFY';
+    if (!microLike) { continue; }
+    if (description !== 'ACCTVERIFY') {
+      context.add(batch.header, 53, 63, 'ACH-MICRO-DESCRIPTION', 'field', 'A Micro-Entry batch must use uppercase ACCTVERIFY in the Company Entry Description field', {
+        expected: 'ACCTVERIFY',
+        actual: rawDescription,
+      });
+    }
+
+    for (const entry of batch.entries) {
+      if (entry.detail.raw.length !== 94) { continue; }
+      const rule = transactionCodes.get(entry.detail.raw.substring(1, 3));
+      const amount = parseBigInt(entry.detail.raw.substring(29, 39));
+      if (!rule || amount === undefined) { continue; }
+      if (rule.kind !== 'payment') {
+        context.add(entry.detail, 1, 3, 'ACH-MICRO-TRANSACTION-KIND', 'sec', 'Micro-Entries must use live payment transaction codes', {
+          expected: 'payment transaction code',
+          actual: `${rule.code} (${rule.kind})`,
+          related: [related(batch.header, 53, 63, 'ACCTVERIFY Company Entry Description')],
+        });
+        continue;
+      }
+      if (rule.direction === 'credit' && (amount < 1n || amount >= 100n)) {
+        context.add(entry.detail, 29, 39, 'ACH-MICRO-CREDIT-AMOUNT', 'sec', 'A credit Micro-Entry must be greater than zero and less than $1.00', {
+          expected: '1-99 cents',
+          actual: `${amount} cents`,
+        });
+      }
+      const accountField = entry.detail.fields.find(field => /Account Number/i.test(field.name));
+      const account = accountField?.rawValue.trim() ?? entry.detail.raw.substring(12, 29).trim();
+      const key = [
+        batch.header.raw.substring(40, 50),
+        entry.detail.raw.substring(3, 12),
+        account,
+      ].join('|');
+      const candidates = groups.get(key) ?? [];
+      candidates.push({ batch, entry, amount, direction: rule.direction });
+      groups.set(key, candidates);
+    }
+  }
+
+  for (const candidates of groups.values()) {
+    const credits = candidates.filter(candidate => candidate.direction === 'credit');
+    const debits = candidates.filter(candidate => candidate.direction === 'debit');
+    const credit = credits.reduce((sum, candidate) => sum + candidate.amount, 0n);
+    const debit = debits.reduce((sum, candidate) => sum + candidate.amount, 0n);
+    if (debit > credit) {
+      const target = debits[0]?.entry.detail ?? candidates[0].entry.detail;
+      context.add(target, 29, 39, 'ACH-MICRO-NET-DEBIT', 'sec', 'Micro-Entry debits exceed corresponding credits found for this receiver account in this file; verify whether additional credits were submitted simultaneously in another file', {
+        severity: 1,
+        expected: `at most ${credit} debit cents`,
+        actual: `${debit} debit cents`,
+        related: credits.map(candidate => related(candidate.entry.detail, 29, 39, 'Corresponding credit Micro-Entry')),
+      });
+    }
+    if (debits.length > 0) {
+      const dates = new Set(candidates.map(candidate => candidate.batch.header.raw.substring(69, 75)));
+      if (dates.size > 1) {
+        const target = debits[0].batch.header;
+        context.add(target, 69, 75, 'ACH-MICRO-EFFECTIVE-DATE', 'sec', 'Potentially corresponding debit and credit Micro-Entries in this file use different Effective Entry Dates', {
+          severity: 1,
+          expected: credits[0]?.batch.header.raw.substring(69, 75),
+          actual: target.raw.substring(69, 75),
+          related: credits.map(candidate => related(candidate.batch.header, 69, 75, 'Credit Micro-Entry Effective Entry Date')),
+        });
+      }
+    }
+  }
+}
+
 function validateEntry(entry: AchEntry, batch: AchBatch, context: ValidationContext): TransactionCodeRule | undefined {
   const record = entry.detail;
   const transactionCode = record.raw.substring(1, 3);
@@ -885,6 +967,7 @@ function validateFieldsAndRelationships(document: AchDocument, context: Validati
 
   validateFileControl(document, batchTotals, context);
   validateNetPosition(document, batchTotals, context);
+  validateMicroEntries(document, context);
 }
 
 export function validateAch(

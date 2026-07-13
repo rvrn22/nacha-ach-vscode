@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added `ACCTVERIFY` Micro-Entry classification, credit-amount and transaction-kind validation, offset warnings, counts, and safe description repair.
 - Added exact net-position analysis and opt-in built-in/custom net-zero validation profiles.
 - Added net position to decoded summaries and redacted JSON reports without inferring an offset account.
 - Added SEC-aware zero-dollar classification, required-addenda validation, counts, and contextual ACK/ATX descriptions.
@@ -11,7 +12,7 @@
 - Added reversal-batch classification, explorer/report counts, description repair, and transaction-kind validation.
 - Added dedicated domestic and IAT field layouts for Return (type 99) and Notification of Change (type 98) addenda.
 - Added `COR` and `IATCOR` validation, Return/NOC field rules, full-trace navigation, and deterministic trace synchronization.
-- Added Return/NOC, reversal, prenote, zero-dollar, and net-position regression coverage and advanced the independent ruleset to `2026.07.6`.
+- Added Return/NOC, reversal, prenote, zero-dollar, net-position, and Micro-Entry regression coverage and advanced the independent ruleset to `2026.07.7`.
 
 All notable changes to the "nacha-file-parser" extension will be documented in this file.
 

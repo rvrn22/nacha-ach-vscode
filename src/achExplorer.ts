@@ -145,10 +145,11 @@ export class AchExplorerProvider implements vscode.TreeDataProvider<AchExplorerN
     const reversalText = summary.reversalBatches > 0 ? ` · ${summary.reversalEntries} reversal entries` : '';
     const prenoteText = summary.prenoteEntries > 0 ? ` · ${summary.prenoteEntries} prenotes` : '';
     const zeroDollarText = summary.zeroDollarEntries > 0 ? ` · ${summary.zeroDollarEntries} zero-dollar` : '';
+    const microText = summary.microEntries > 0 ? ` · ${summary.microEntries} micro-entries` : '';
     const netText = summary.netPosition === 'zero'
       ? 'net zero'
       : `$${formatAchCents(summary.netPositionAmountCents)} net ${summary.netPosition}`;
-    const summaryText = `${summary.batches} batches · ${summary.entries} entries${reversalText}${prenoteText}${zeroDollarText} · $${formatAchCents(summary.totalCreditCents)} CR · $${formatAchCents(summary.totalDebitCents)} DR · ${netText}`;
+    const summaryText = `${summary.batches} batches · ${summary.entries} entries${reversalText}${prenoteText}${zeroDollarText}${microText} · $${formatAchCents(summary.totalCreditCents)} CR · $${formatAchCents(summary.totalDebitCents)} DR · ${netText}`;
     addDiagnosticBadge(fileNode, diagnostics, summaryText);
 
     for (const header of document.fileHeaders) {
@@ -202,10 +203,10 @@ export class AchExplorerProvider implements vscode.TreeDataProvider<AchExplorerN
   ): AchExplorerNode {
     const batchNumber = trimmed(batch.header, 87, 94) || String(index + 1);
     const secCode = batch.secCode || 'Unknown SEC';
-    const purpose = batch.isReversal ? ' · REVERSAL' : '';
+    const purpose = batch.isReversal ? ' · REVERSAL' : batch.isMicroEntry ? ' · ACCTVERIFY' : '';
     const node = new AchExplorerNode(`Batch ${batchNumber} · ${secCode}${purpose}`, 'batch', vscode.TreeItemCollapsibleState.Collapsed);
     node.id = `${uri.toString()}#batch-${batch.header.line}`;
-    node.iconPath = new vscode.ThemeIcon(batch.isReversal ? 'discard' : 'layers');
+    node.iconPath = new vscode.ThemeIcon(batch.isReversal ? 'discard' : batch.isMicroEntry ? 'verified' : 'layers');
     setSourceCommand(node, uri, batch.header.line, 0, batch.header.raw.length);
     const amounts = batchAmounts(batch);
     const amountDescription = `$${formatAchCents(amounts.credit)} CR · $${formatAchCents(amounts.debit)} DR`;
@@ -256,7 +257,7 @@ export class AchExplorerProvider implements vscode.TreeDataProvider<AchExplorerN
     const description = describeTransactionCode(transactionCode, entry.detail.secCode);
     const node = new AchExplorerNode(`Entry ${traceSequence} · ${description ?? transactionCode}`, 'entry', vscode.TreeItemCollapsibleState.Collapsed);
     node.id = `${uri.toString()}#entry-${entry.detail.line}`;
-    node.iconPath = new vscode.ThemeIcon(entry.isPrenote ? 'preview' : entry.isZeroDollar ? 'symbol-constant' : 'symbol-field');
+    node.iconPath = new vscode.ThemeIcon(entry.isMicroEntry ? 'verified' : entry.isPrenote ? 'preview' : entry.isZeroDollar ? 'symbol-constant' : 'symbol-field');
     setSourceCommand(node, uri, entry.detail.line, 0, entry.detail.raw.length);
     const entryDescription = [entryAmount(entry), entryAccount(entry, maskSensitiveValues), `${entry.addenda.length} addenda`].filter(Boolean).join(' · ');
     addDiagnosticBadge(node, diagnosticsForLines(diagnostics, entry.records.map(record => record.line)), entryDescription);

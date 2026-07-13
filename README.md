@@ -54,6 +54,14 @@ A professional Visual Studio Code extension for developers and treasury professi
 - **Visible Funding Context**: Displays the signed net amount in summaries, the decoded explorer, and redacted JSON reports.
 - **Honest Offset Boundary**: Net-zero arithmetic is not presented as proof that a specific entry is an offset; identifying the settlement account remains institution-specific.
 
+### ✅ Micro-Entry Awareness
+- **ACCTVERIFY Classification**: Recognizes and labels batches using the mandatory uppercase `ACCTVERIFY` Company Entry Description.
+- **Credit Amount Rules**: Requires credit Micro-Entries to be between 1 and 99 cents and use live payment transaction codes.
+- **Offset Review**: Groups entries by originator and receiver account, warning when debits found in the file exceed credits or potentially corresponding entries use different Effective Entry Dates.
+- **Safe Description Fix**: Corrects unambiguous `ACCTVERIFY` casing mistakes without changing payment instructions.
+- **Visible Counts**: Shows Micro-Entry batches and entries in summaries, the decoded explorer, and redacted JSON reports.
+- **External Controls**: Does not claim to verify recognizable Company Names, separately submitted corresponding files, completion of account verification, or required fraud monitoring.
+
 ### 🎨 Visual Intelligence
 - **Alternating Field Highlighting**: Provides visual cues for field boundaries with alternating colors to make fixed-width files readable.
 - **Interactive Hovers**: Hover over any position to see the field name, description, start/end positions, and the raw value.
@@ -85,7 +93,7 @@ A professional Visual Studio Code extension for developers and treasury professi
 ### 📋 Profiles, Reports, and Automation
 - **Named Profiles**: Define institution/operator profiles that extend strict or unblocked validation behavior.
 - **Explained Overrides**: Change or suppress exact rules, categories, or all rules only with a recorded reason.
-- **Versioned Rules**: Reports identify ruleset version `2026.07.6` independently from the extension version.
+- **Versioned Rules**: Reports identify ruleset version `2026.07.7` independently from the extension version.
 - **Redacted Reports**: Export JSON or SARIF without exposing account numbers and individual identifiers.
 - **Headless CLI**: Run the same parser and validator in CI, scripts, and pre-upload workflows.
 - **Text Detection**: High-confidence ACH content in `.txt` files can switch to ACH language mode with one click.

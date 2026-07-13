@@ -76,6 +76,8 @@ export function createAchJsonReport(input: AchReportInput) {
       prenoteEntries: input.summary.prenoteEntries,
       batchesWithZeroDollarEntries: input.summary.batchesWithZeroDollarEntries,
       zeroDollarEntries: input.summary.zeroDollarEntries,
+      microEntryBatches: input.summary.microEntryBatches,
+      microEntries: input.summary.microEntries,
       netPosition: input.summary.netPosition,
       netAmountCents: input.summary.netAmountCents.toString(),
       netPositionAmountCents: input.summary.netPositionAmountCents.toString(),

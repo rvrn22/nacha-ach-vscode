@@ -21,6 +21,7 @@ const directFixTitles: Record<string, string> = {
   'ACH-FIELD-ORIGINATOR-STATUS': 'Set Originator Status Code to 1',
   'ACH-FIELD-ROUTING-CHECK-DIGIT': 'Correct routing check digit',
   'ACH-REVERSAL-DESCRIPTION': 'Format Company Entry Description as REVERSAL',
+  'ACH-MICRO-DESCRIPTION': 'Format Company Entry Description as ACCTVERIFY',
   'ACH-FIELD-BATCH-ENTRY-COUNT': 'Recalculate batch Entry/Addenda Count',
   'ACH-FIELD-BATCH-HASH': 'Recalculate batch Entry Hash',
   'ACH-FIELD-BATCH-DEBIT': 'Recalculate batch debit total',
