@@ -213,12 +213,23 @@ Status: Completed
 - [x] Preserve ADV Operator routing/date fields during explicit sequence renumbering.
 - [x] Add valid, targeted-invalid, decoding, summary, control-fix, and sequence-fix regression coverage.
 
+## Post-roadmap — ACK/ATX acknowledgment support
+
+Status: Completed
+
+- [x] Decode ACK and ATX Entry Detail fields using their acknowledgment-specific meanings.
+- [x] Validate zero amounts, required account/company data, and Original Entry Trace Numbers.
+- [x] Validate ATX declared addenda counts and reserved columns.
+- [x] Enforce the optional single type `05` addenda and its sequence/trace relationships.
+- [x] Add focused ACK/ATX layout and validation regression coverage.
+
 ## Test strategy
 
 - [ ] Golden valid/invalid fixtures for every supported SEC code.
   - [x] Common domestic ARC, BOC, RCK, CCD, CTX, PPD, TEL, and WEB layouts.
   - [x] Specialized ADV layout.
-  - [ ] Specialized ACK, ATX, CIE, DNE, ENR, MTE, POS, SHR, and TRX layouts.
+  - [x] Specialized ACK and ATX layouts.
+  - [ ] Specialized CIE, DNE, ENR, MTE, POS, SHR, and TRX layouts.
 - [ ] Returns, NOCs, reversals, prenotes, balanced/unbalanced files, and zero-dollar entries.
   - [x] Returns and NOCs.
   - [x] Reversals.

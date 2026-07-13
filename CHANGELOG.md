@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added complete ACK/ATX Entry Detail layouts, original-trace and required-field validation, zero-amount enforcement, and ATX declared-count checks.
+- Added focused ACK/ATX layout, decoding, addenda, and targeted-invalid regression coverage.
 - Added complete ADV Entry Detail, Batch Control, and File Control parsing with service class 280 and transaction codes 81–88.
 - Added ADV 12/20-digit arithmetic, field validation, summaries, navigation, safe control repair, and non-destructive sequence renumbering.
 - Added SEC-aware Entry Detail field names and required-data validation for common domestic ARC, BOC, RCK, CCD, CTX, PPD, TEL, and WEB entries.
@@ -18,7 +20,7 @@
 - Added reversal-batch classification, explorer/report counts, description repair, and transaction-kind validation.
 - Added dedicated domestic and IAT field layouts for Return (type 99) and Notification of Change (type 98) addenda.
 - Added `COR` and `IATCOR` validation, Return/NOC field rules, full-trace navigation, and deterministic trace synchronization.
-- Added Return/NOC, reversal, prenote, zero-dollar, net-position, Micro-Entry, complete-IAT, common domestic SEC, and ADV regression coverage and advanced the independent ruleset to `2026.07.10`.
+- Added Return/NOC, reversal, prenote, zero-dollar, net-position, Micro-Entry, complete-IAT, common domestic SEC, ADV, and ACK/ATX regression coverage and advanced the independent ruleset to `2026.07.11`.
 
 All notable changes to the "nacha-file-parser" extension will be documented in this file.
 

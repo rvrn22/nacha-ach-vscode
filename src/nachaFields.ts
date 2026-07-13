@@ -312,13 +312,33 @@ const ctxEntryFields: FieldDefinition[] = [
   ...recordFields['6'].slice(9),
 ];
 
+// Public layout reference: Nacha Operating Rules Basic Appendices,
+// Appendix Six, Acknowledgment Entries.
+const ackEntryFields = entryFieldsWith({
+  39: { name: 'Original Entry Trace Number', description: 'Trace number from the original CCD entry being acknowledged' },
+  54: { name: 'Receiving Company Name', description: 'Company name copied from the original CCD entry' },
+});
+
+const atxEntryFields: FieldDefinition[] = [
+  ...recordFields['6'].slice(0, 7).map(field => field.start === 39
+    ? { ...field, name: 'Original Entry Trace Number', description: 'Trace number from the original CTX entry being acknowledged' }
+    : field),
+  { start: 54, end: 58, name: 'Number of Addenda Records', description: 'Four-digit count of addenda records attached to this ATX acknowledgment' },
+  { start: 58, end: 74, name: 'Receiving Company Name / ID Number', description: 'Company name or identifier copied from the original CTX entry' },
+  { start: 74, end: 76, name: 'Reserved', description: 'Blank/spaces' },
+  { start: 76, end: 78, name: 'Discretionary Data', description: 'Optional data for specialized handling' },
+  ...recordFields['6'].slice(9),
+];
+
 // These SEC classes share the standard 94-character Entry Detail shape but
 // assign different business meaning to positions 40-78.
 const entryFieldsBySec: Record<string, FieldDefinition[]> = {
+  ACK: ackEntryFields,
   ARC: entryFieldsWith({
     39: { name: 'Check Serial Number', description: 'Check serial number from the converted source document' },
     54: { name: 'Individual Name / Receiving Company Name', description: 'Optional Receiver name' },
   }),
+  ATX: atxEntryFields,
   BOC: entryFieldsWith({
     39: { name: 'Check Serial Number', description: 'Check serial number from the converted source document' },
     54: { name: 'Individual Name / Receiving Company Name', description: 'Optional Receiver name' },

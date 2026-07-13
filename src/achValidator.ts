@@ -519,7 +519,7 @@ function validateSecEntryFields(
 
   const record = entry.detail;
   const secCode = batch.secCode;
-  const standardAccountSecs = ['ARC', 'BOC', 'CCD', 'CTX', 'PPD', 'RCK', 'TEL', 'WEB'];
+  const standardAccountSecs = ['ACK', 'ARC', 'ATX', 'BOC', 'CCD', 'CTX', 'PPD', 'RCK', 'TEL', 'WEB'];
   if (standardAccountSecs.includes(secCode) && record.raw.substring(12, 29).trim().length === 0) {
     context.add(record, 12, 29, 'ACH-SEC-ACCOUNT-REQUIRED', 'sec', `DFI Account Number is required for ${secCode} entries`);
   }
@@ -533,6 +533,31 @@ function validateSecEntryFields(
 
   if (['ARC', 'BOC', 'RCK'].includes(secCode) && record.raw.substring(39, 54).trim().length === 0) {
     context.add(record, 39, 54, 'ACH-SEC-CHECK-SERIAL-REQUIRED', 'sec', `Check Serial Number is required for ${secCode} entries`);
+  }
+
+  if (['ACK', 'ATX'].includes(secCode)) {
+    const originalTrace = record.raw.substring(39, 54);
+    if (!/^\d{15}$/.test(originalTrace)) {
+      context.add(record, 39, 54, 'ACH-ACK-ORIGINAL-TRACE', 'sec', `${secCode} Original Entry Trace Number must contain 15 digits`, { expected: '15 digits', actual: originalTrace });
+    }
+    const acknowledgmentReceiverRange: [number, number] = secCode === 'ATX' ? [58, 74] : [54, 76];
+    if (record.raw.substring(acknowledgmentReceiverRange[0], acknowledgmentReceiverRange[1]).trim().length === 0) {
+      context.add(record, acknowledgmentReceiverRange[0], acknowledgmentReceiverRange[1], 'ACH-ACK-RECEIVER-REQUIRED', 'sec', `${secCode} Receiving Company Name${secCode === 'ATX' ? ' / ID Number' : ''} is required`);
+    }
+    if (secCode === 'ATX') {
+      const declaredRaw = record.raw.substring(54, 58);
+      if (!/^\d{4}$/.test(declaredRaw)) {
+        context.add(record, 54, 58, 'ACH-ATX-ADDENDA-COUNT-NUMERIC', 'sec', 'ATX Number of Addenda Records must contain four digits', { actual: declaredRaw });
+      } else {
+        const expected = String(entry.addenda.length).padStart(4, '0');
+        if (declaredRaw !== expected) {
+          context.add(record, 54, 58, 'ACH-ATX-ADDENDA-COUNT', 'sec', 'Declared ATX addenda count does not match actual attached addenda records', { expected, actual: declaredRaw });
+        }
+      }
+      if (record.raw.substring(74, 76).trim().length > 0) {
+        context.add(record, 74, 76, 'ACH-ATX-RESERVED', 'field', 'ATX Entry Detail reserved field must be blank');
+      }
+    }
   }
 
   if (secCode === 'WEB'
@@ -607,6 +632,8 @@ function validateEntry(entry: AchEntry, batch: AchBatch, context: ValidationCont
   const amount = parseBigInt(amountRaw);
   if (amount === undefined) {
     context.add(record, amountStart, amountEnd, 'ACH-FIELD-AMOUNT-NUMERIC', 'field', `Amount must contain ${amountEnd - amountStart} digits`, { actual: amountRaw });
+  } else if (['ACK', 'ATX'].includes(batch.secCode) && amount !== 0n) {
+    context.add(record, amountStart, amountEnd, 'ACH-ACK-AMOUNT-ZERO', 'sec', `${batch.secCode} acknowledgment entries must have a zero amount`, { expected: '0000000000', actual: amountRaw });
   } else if (rule && ['prenote', 'zeroDollar'].includes(rule.kind) && amount !== 0n) {
     const prenote = isPrenoteTransaction(rule, batch.secCode);
     const zeroDollar = isZeroDollarTransaction(rule, batch.secCode);

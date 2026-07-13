@@ -27,6 +27,12 @@ A professional Visual Studio Code extension for developers and treasury professi
 - **Safe Sequence Repair**: Renumbers only the ADV sequence field without overwriting the ACH Operator routing number or advice date.
 - **File Boundary**: Rejects mixing ADV and non-ADV batches because their File Control amount layouts differ.
 
+### 📬 ACK/ATX Acknowledgments
+- **Correct Entry Layouts**: Decodes the Original Entry Trace Number and the distinct ACK company-name and ATX company/count fields.
+- **Acknowledgment Rules**: Enforces transaction codes `24`/`34`, zero amounts, required account/company data, and numeric original traces.
+- **Optional Addenda**: Allows one type-`05` acknowledgment addenda and validates its indicator, sequence, and Entry Detail trace link.
+- **ATX Counts**: Checks the four-digit declared addenda count and reserved columns in the corporate acknowledgment layout.
+
 ### 🌐 Full IAT Support
 - **International Transactions**: Comprehensive support for International ACH Transactions (IAT).
 - **Contextual Parsing**: Switches field definitions automatically when an IAT batch is detected.
