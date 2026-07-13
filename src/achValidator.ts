@@ -537,7 +537,7 @@ function validateSecEntryFields(
 
   const record = entry.detail;
   const secCode = batch.secCode;
-  const standardAccountSecs = ['ACK', 'ARC', 'ATX', 'BOC', 'CCD', 'CIE', 'CTX', 'DNE', 'ENR', 'MTE', 'POS', 'PPD', 'RCK', 'SHR', 'TEL', 'WEB'];
+  const standardAccountSecs = ['ACK', 'ARC', 'ATX', 'BOC', 'CCD', 'CIE', 'CTX', 'DNE', 'ENR', 'MTE', 'POS', 'PPD', 'RCK', 'SHR', 'TEL', 'TRX', 'WEB'];
   if (standardAccountSecs.includes(secCode) && record.raw.substring(12, 29).trim().length === 0) {
     context.add(record, 12, 29, 'ACH-SEC-ACCOUNT-REQUIRED', 'sec', `DFI Account Number is required for ${secCode} entries`);
   }
@@ -644,6 +644,24 @@ function validateSecEntryFields(
     const cardAccount = record.raw.substring(54, 76);
     if (!/^\d{22}$/.test(cardAccount)) {
       context.add(record, 54, 76, 'ACH-SHR-CARD-ACCOUNT', 'sec', 'SHR Individual Card Account Number must contain 22 digits', { expected: '22 digits', actual: cardAccount });
+    }
+  }
+
+  if (secCode === 'TRX') {
+    const declaredRaw = record.raw.substring(54, 58);
+    if (!/^\d{4}$/.test(declaredRaw)) {
+      context.add(record, 54, 58, 'ACH-TRX-ADDENDA-COUNT-NUMERIC', 'sec', 'TRX Number of Addenda Records must contain four digits', { actual: declaredRaw });
+    } else {
+      const expected = String(entry.addenda.length).padStart(4, '0');
+      if (declaredRaw !== expected) {
+        context.add(record, 54, 58, 'ACH-TRX-ADDENDA-COUNT', 'sec', 'Declared TRX addenda count does not match actual attached addenda records', { expected, actual: declaredRaw });
+      }
+    }
+    if (record.raw.substring(58, 74).trim().length === 0) {
+      context.add(record, 58, 74, 'ACH-TRX-RECEIVER-REQUIRED', 'sec', 'Receiving Company Name / ID Number is required for a TRX entry');
+    }
+    if (record.raw.substring(74, 76).trim().length > 0) {
+      context.add(record, 74, 76, 'ACH-TRX-RESERVED', 'field', 'TRX Entry Detail reserved field must be blank');
     }
   }
 
@@ -1016,6 +1034,17 @@ function validateEntryAddenda(entry: AchEntry, batch: AchBatch, rule: Transactio
     context.add(detail, 78, 79, 'ACH-TERMINAL-ADDENDA-REQUIRED', 'sec', `${batch.secCode} live entries require exactly one type 02 addenda record`, {
       expected: 'one type 02 addenda',
       actual: `${terminalAddendaCount} type 02 addenda`,
+    });
+  }
+
+
+  if (batch.secCode === 'TRX'
+    && rule?.kind !== 'return'
+    && !isPrenoteTransaction(rule, batch.secCode)
+    && entry.addenda.filter(addenda => addenda.raw.substring(1, 3) === '05').length === 0) {
+    context.add(detail, 78, 79, 'ACH-TRX-ADDENDA-REQUIRED', 'sec', 'TRX live entries require at least one type 05 addenda record', {
+      expected: 'at least one type 05 addenda',
+      actual: '0 type 05 addenda',
     });
   }
 

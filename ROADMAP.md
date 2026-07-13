@@ -246,6 +246,18 @@ Status: Completed
 - [x] Navigate, safely synchronize, and explicitly renumber complete terminal addenda traces.
 - [x] Add valid, prenote, targeted-invalid, decoding, navigation, and fix regression coverage.
 
+## Post-roadmap — TRX truncated entries exchange
+
+Status: Completed
+
+- [x] Decode the TRX Corporate Entry Detail count, Receiver, reserved, and Item Type Indicator fields.
+- [x] Enforce debit transaction codes, required account/Receiver data, and blank reserved columns.
+- [x] Require at least one type `05` addenda for live TRX entries while permitting prenotes without addenda.
+- [x] Support up to 9,999 addenda and validate the four-digit declared count.
+- [x] Preserve optional NACS payment-related content while validating addenda sequences and Entry Detail linkage.
+- [x] Safely repair declared TRX addenda counts.
+- [x] Add valid, prenote, targeted-invalid, count-fix, and sequence-link regression coverage.
+
 ## Test strategy
 
 - [ ] Golden valid/invalid fixtures for every supported SEC code.
@@ -254,7 +266,7 @@ Status: Completed
   - [x] Specialized ACK and ATX layouts.
   - [x] Specialized CIE, DNE, and ENR layouts.
   - [x] Specialized MTE, POS, and SHR layouts.
-  - [ ] Specialized TRX layout.
+  - [x] Specialized TRX layout.
 - [ ] Returns, NOCs, reversals, prenotes, balanced/unbalanced files, and zero-dollar entries.
   - [x] Returns and NOCs.
   - [x] Reversals.

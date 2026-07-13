@@ -54,6 +54,7 @@ const directFixTitles: Record<string, string> = {
   'ACH-IAT-ADDENDA-COUNT': 'Recalculate IAT addenda count',
   'ACH-ATX-ADDENDA-COUNT': 'Recalculate ATX addenda count',
   'ACH-ENR-ADDENDA-COUNT': 'Recalculate ENR addenda count',
+  'ACH-TRX-ADDENDA-COUNT': 'Recalculate TRX addenda count',
 };
 
 const derivedCodes = new Set([
@@ -89,6 +90,7 @@ const derivedCodes = new Set([
   'ACH-IAT-ADDENDA-COUNT',
   'ACH-ATX-ADDENDA-COUNT',
   'ACH-ENR-ADDENDA-COUNT',
+  'ACH-TRX-ADDENDA-COUNT',
 ]);
 
 function editKey(edit: AchTextEdit): string {

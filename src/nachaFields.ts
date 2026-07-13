@@ -402,6 +402,17 @@ const shrEntryFields: FieldDefinition[] = [
   ...recordFields['6'].slice(9),
 ];
 
+const trxEntryFields: FieldDefinition[] = [
+  ...recordFields['6'].slice(0, 7).map(field => field.start === 39
+    ? { ...field, name: 'Identification Number', description: 'Optional Originator-assigned number for tracing the check-safekeeping entry' }
+    : field),
+  { start: 54, end: 58, name: 'Number of Addenda Records', description: 'Four-digit count of addenda records attached to this TRX entry' },
+  { start: 58, end: 74, name: 'Receiving Company Name / ID Number', description: 'Name or identifier of the check-safekeeping Receiver' },
+  { start: 74, end: 76, name: 'Reserved', description: 'Blank/spaces' },
+  { start: 76, end: 78, name: 'Item Type Indicator', description: 'Optional indicator identifying the type of truncated check item' },
+  ...recordFields['6'].slice(9),
+];
+
 // These SEC classes share the standard 94-character Entry Detail shape but
 // assign different business meaning to positions 40-78.
 const entryFieldsBySec: Record<string, FieldDefinition[]> = {
@@ -430,6 +441,7 @@ const entryFieldsBySec: Record<string, FieldDefinition[]> = {
   MTE: mteEntryFields,
   POS: posEntryFields,
   SHR: shrEntryFields,
+  TRX: trxEntryFields,
   WEB: entryFieldsWith({
     39: { name: 'Individual Identification Number / P2P Originator Name', description: 'Optional for WEB debits; contains the consumer Originator name for a WEB credit' },
     76: { name: 'Payment Type Code', description: 'Optional Originator-defined code; R, S, and ST have conventional meanings' },

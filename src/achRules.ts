@@ -99,7 +99,7 @@ export const knownSecCodes = new Set([
 
 const consumerAccountSecCodes = new Set(['ARC', 'BOC', 'CIE', 'MTE', 'POP', 'POS', 'PPD', 'RCK', 'SHR', 'TEL', 'WEB']);
 const zeroDollarSecCodes = new Set(['CCD', 'CTX', 'IAT']);
-const debitOnlySecCodes = new Set(['ARC', 'BOC', 'POP', 'POS', 'RCK', 'SHR', 'TEL']);
+const debitOnlySecCodes = new Set(['ARC', 'BOC', 'POP', 'POS', 'RCK', 'SHR', 'TEL', 'TRX']);
 const creditOnlySecCodes = new Set(['ACK', 'ATX', 'CIE', 'DNE', 'ENR']);
 const type05AddendaSecCodes = new Set(['ACK', 'ATX', 'CCD', 'CIE', 'CTX', 'DNE', 'ENR', 'PPD', 'TRX', 'WEB']);
 const type02AddendaSecCodes = new Set(['MTE', 'POS', 'SHR']);
@@ -145,7 +145,7 @@ export function maximumAddendaForSec(secCode: string): number | undefined {
   if (['CIE', 'DNE', 'PPD', 'CCD', 'WEB'].includes(secCode)) { return 1; }
   if (['ARC', 'BOC', 'POP', 'RCK', 'TEL'].includes(secCode)) { return 0; }
   if (type02AddendaSecCodes.has(secCode)) { return 1; }
-  if (secCode === 'CTX') { return 9999; }
+  if (['CTX', 'TRX'].includes(secCode)) { return 9999; }
   if (secCode === 'ENR') { return 9999; }
   if (secCode === 'IAT') { return 12; }
   return undefined;

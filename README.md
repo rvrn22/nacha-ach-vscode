@@ -46,6 +46,13 @@ A professional Visual Studio Code extension for developers and treasury professi
 - **Prenote Awareness**: Requires one type-`02` addenda for live terminal entries while allowing MTE/POS/SHR prenotes without addenda.
 - **Complete Trace Handling**: Navigates and safely synchronizes the full 15-digit terminal addenda trace during fixes and explicit renumbering.
 
+### ✂️ TRX Truncated Entries Exchange
+- **Corporate Layout**: Decodes the four-digit addenda count, Receiving Company Name/ID, reserved columns, and Item Type Indicator.
+- **TRX Rules**: Enforces debit entries, required account/Receiver data, and up to 9,999 type-`05` addenda records.
+- **Prenote Exception**: Requires addenda for live TRX entries while permitting prenotes without addenda.
+- **Safe Count Repair**: Reconciles declared and attached addenda counts without changing optional check-safekeeping payloads.
+- **Sequence Integrity**: Reuses type-`05` sequence and Entry Detail linkage validation across large TRX addenda sets.
+
 ### 🌐 Full IAT Support
 - **International Transactions**: Comprehensive support for International ACH Transactions (IAT).
 - **Contextual Parsing**: Switches field definitions automatically when an IAT batch is detected.
