@@ -18,6 +18,13 @@ A professional Visual Studio Code extension for developers and treasury professi
 - **Contextual Parsing**: Switches field definitions automatically when an IAT batch is detected.
 - **Mandatory Addenda**: Validates the presence of the 7 required IAT addenda records (Types 10-16: Name, Address, Bank IDs, etc.).
 
+### ↩️ Returns and Notifications of Change
+- **Dedicated Addenda Layouts**: Decodes type 99 Return and type 98 Notification of Change records with their actual fixed-width fields instead of treating them as payment addenda.
+- **Return Validation**: Validates reason-code shape, original trace and RDFI identifiers, conditional Date of Death, and the complete related trace number.
+- **NOC Validation**: Recognizes `COR` batches and validates transaction codes, zero-dollar amounts, corrected data, reserved fields, and required type 98 addenda.
+- **IAT Variants**: Uses the IAT-specific Return payment-amount and NOC corrected-data widths.
+- **Safe Trace Repair**: Highlights and synchronizes the complete 15-digit Return/NOC addenda trace when it differs from the related Entry Detail record.
+
 ### 🎨 Visual Intelligence
 - **Alternating Field Highlighting**: Provides visual cues for field boundaries with alternating colors to make fixed-width files readable.
 - **Interactive Hovers**: Hover over any position to see the field name, description, start/end positions, and the raw value.
@@ -49,7 +56,7 @@ A professional Visual Studio Code extension for developers and treasury professi
 ### 📋 Profiles, Reports, and Automation
 - **Named Profiles**: Define institution/operator profiles that extend strict or unblocked validation behavior.
 - **Explained Overrides**: Change or suppress exact rules, categories, or all rules only with a recorded reason.
-- **Versioned Rules**: Reports identify ruleset version `2026.07.1` independently from the extension version.
+- **Versioned Rules**: Reports identify ruleset version `2026.07.2` independently from the extension version.
 - **Redacted Reports**: Export JSON or SARIF without exposing account numbers and individual identifiers.
 - **Headless CLI**: Run the same parser and validator in CI, scripts, and pre-upload workflows.
 - **Text Detection**: High-confidence ACH content in `.txt` files can switch to ACH language mode with one click.

@@ -107,10 +107,22 @@ Status: Completed
 - [x] Replace the placeholder `Hello World` command with an ACH file summary.
 - [x] Align README feature claims with verified behavior.
 
+## Post-roadmap — Returns and Notifications of Change
+
+Status: Completed
+
+- [x] Decode domestic type 99 Return and type 98 Notification of Change addenda layouts.
+- [x] Decode the distinct IAT Return and NOC field widths.
+- [x] Recognize `COR` batches and enforce their transaction-code, amount, and addenda requirements.
+- [x] Validate Return/NOC codes, original identifiers, corrected data, reserved fields, and conditional dates.
+- [x] Relate, highlight, and safely synchronize the complete 15-digit addenda trace.
+- [x] Add valid and targeted-invalid regression coverage for Return and NOC workflows.
+
 ## Test strategy
 
 - [ ] Golden valid/invalid fixtures for every supported SEC code.
 - [ ] Returns, NOCs, reversals, prenotes, balanced/unbalanced files, and zero-dollar entries.
+  - [x] Returns and NOCs.
 - [ ] IAT addenda presence, order, count, and trace relationships.
 - [ ] CRLF/LF, tabs, non-ASCII characters, short/long records, and padding edge cases.
 - [ ] Property-style mutations of counts, hashes, totals, routing digits, and record order.

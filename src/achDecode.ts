@@ -21,6 +21,7 @@ const secDescriptions: Record<string, string> = {
   BOC: 'Back Office Conversion',
   CCD: 'Corporate Credit or Debit',
   CIE: 'Customer Initiated Entry',
+  COR: 'Notification of Change',
   CTX: 'Corporate Trade Exchange',
   IAT: 'International ACH Transaction',
   MTE: 'Machine Transfer Entry',
@@ -59,7 +60,7 @@ function decodeTime(value: string): string | undefined {
 }
 
 function isCentAmountField(fieldName: string): boolean {
-  return fieldName === 'Amount' || /Dollar Amount/i.test(fieldName);
+  return fieldName === 'Amount' || /(?:Dollar|Payment) Amount/i.test(fieldName);
 }
 
 export function decodeAchField(record: AchRecord, field: AchField, maskSensitiveValues = true): DecodedAchValue {
@@ -96,7 +97,7 @@ export function decodeAchField(record: AchRecord, field: AchField, maskSensitive
   if (isCentAmountField(field.name) && /^\d+$/.test(value)) {
     return { display: `$${formatAchCents(BigInt(value))}`, raw, masked: false };
   }
-  if (field.name === 'File Creation Date' || field.name === 'Effective Entry Date') {
+  if (field.name === 'File Creation Date' || field.name === 'Effective Entry Date' || field.name === 'Date of Death') {
     const decoded = decodeDate(value);
     if (decoded) { return { display: decoded, raw, masked: false }; }
   }

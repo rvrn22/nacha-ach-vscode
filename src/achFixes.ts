@@ -48,6 +48,7 @@ const directFixTitles: Record<string, string> = {
   'ACH-RELATION-ADDENDA-INDICATOR': 'Synchronize Addenda Record Indicator',
   'ACH-RELATION-ADDENDA-SEQUENCE': 'Correct Addenda Sequence Number',
   'ACH-RELATION-ADDENDA-ENTRY-SEQUENCE': 'Synchronize addenda Entry Detail Sequence Number',
+  'ACH-RELATION-ADDENDA-TRACE': 'Synchronize Return/NOC Addenda Trace Number',
   'ACH-IAT-ADDENDA-COUNT': 'Recalculate IAT addenda count',
 };
 
@@ -79,6 +80,7 @@ const derivedCodes = new Set([
   'ACH-RELATION-ADDENDA-INDICATOR',
   'ACH-RELATION-ADDENDA-SEQUENCE',
   'ACH-RELATION-ADDENDA-ENTRY-SEQUENCE',
+  'ACH-RELATION-ADDENDA-TRACE',
   'ACH-IAT-ADDENDA-COUNT',
 ]);
 
@@ -238,7 +240,11 @@ export function buildSequenceRenumberEdits(document: AchDocument): AchTextEdit[]
       addReplacement(edits, entry.detail, 79, 94, `${odfi}${sequence}`, 'Renumber Trace Number');
       for (let addendaIndex = 0; addendaIndex < entry.addenda.length; addendaIndex++) {
         const addenda = entry.addenda[addendaIndex];
-        addReplacement(edits, addenda, 87, 94, sequence, 'Synchronize addenda entry sequence');
+        if (['98', '99'].includes(addenda.raw.substring(1, 3))) {
+          addReplacement(edits, addenda, 79, 94, `${odfi}${sequence}`, 'Synchronize Return/NOC addenda trace number');
+        } else {
+          addReplacement(edits, addenda, 87, 94, sequence, 'Synchronize addenda entry sequence');
+        }
         if (addenda.raw.substring(1, 3) === '05') {
           addReplacement(edits, addenda, 83, 87, String(addendaIndex + 1).padStart(4, '0'), 'Renumber Addenda Sequence');
         }

@@ -60,7 +60,7 @@ const transactionCodeRules: TransactionCodeRule[] = [
 export const transactionCodes = new Map(transactionCodeRules.map(rule => [rule.code, rule]));
 
 export const knownSecCodes = new Set([
-  'ACK', 'ADV', 'ARC', 'ATX', 'BOC', 'CCD', 'CIE', 'CTX', 'DNE', 'ENR',
+  'ACK', 'ADV', 'ARC', 'ATX', 'BOC', 'CCD', 'CIE', 'COR', 'CTX', 'DNE', 'ENR',
   'IAT', 'MTE', 'POP', 'POS', 'PPD', 'RCK', 'SHR', 'TEL', 'TRX', 'WEB',
 ]);
 
@@ -72,6 +72,9 @@ const type05AddendaSecCodes = new Set(['ACK', 'ATX', 'CCD', 'CIE', 'CTX', 'DNE',
 const type02AddendaSecCodes = new Set(['MTE', 'POS', 'SHR']);
 
 export function transactionCodeCompatibility(rule: TransactionCodeRule, secCode: string): string | undefined {
+  if (secCode === 'COR' && !['21', '26', '41', '46', '51', '56'].includes(rule.code)) {
+    return `COR entries require transaction code 21, 26, 41, 46, 51, or 56`;
+  }
   if (consumerAccountSecCodes.has(secCode) && !['checking', 'savings'].includes(rule.accountType)) {
     return `${secCode} entries use consumer checking or savings transaction codes`;
   }
@@ -88,6 +91,7 @@ export function transactionCodeCompatibility(rule: TransactionCodeRule, secCode:
 }
 
 export function maximumAddendaForSec(secCode: string): number | undefined {
+  if (secCode === 'COR') { return 1; }
   if (['PPD', 'CCD', 'WEB'].includes(secCode)) { return 1; }
   if (['ARC', 'BOC', 'POP', 'RCK', 'TEL'].includes(secCode)) { return 0; }
   if (type02AddendaSecCodes.has(secCode)) { return 1; }
@@ -97,6 +101,7 @@ export function maximumAddendaForSec(secCode: string): number | undefined {
 }
 
 export function allowedAddendaTypesForSec(secCode: string): ReadonlySet<string> | undefined {
+  if (secCode === 'COR') { return new Set(['98']); }
   if (type05AddendaSecCodes.has(secCode)) { return new Set(['05']); }
   if (type02AddendaSecCodes.has(secCode)) { return new Set(['02']); }
   if (secCode === 'IAT') { return new Set(['10', '11', '12', '13', '14', '15', '16', '17', '18']); }

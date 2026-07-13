@@ -18,7 +18,7 @@ export const iatRecordFields: Record<string, FieldDefinition[]> = {
   '5': [
     { start: 0, end: 1, name: 'Record Type Code', description: '5 - Batch Header Record' },
     { start: 1, end: 4, name: 'Service Class Code', description: '200=Mixed, 220=Credits, 225=Debits' },
-    { start: 4, end: 20, name: 'IAT Indicator', description: 'Always "IAT" followed by 13 spaces' },
+    { start: 4, end: 20, name: 'IAT Indicator', description: 'Blank for forward IAT entries; IATCOR for an IAT Notification of Change' },
     { start: 20, end: 22, name: 'Foreign Exchange Indicator', description: 'FV=Fixed-to-Variable, VF=Variable-to-Fixed, FF=Fixed-to-Fixed' },
     { start: 22, end: 23, name: 'Foreign Exchange Reference Indicator', description: '1=Exchange Rate, 2=Reference Number, 3=Space filled' },
     { start: 23, end: 38, name: 'Foreign Exchange Reference', description: 'Exchange rate or reference number' },
@@ -112,6 +112,48 @@ export const addendaIATFields: Record<string, FieldDefinition[]> = {
   ]
 };
 
+// Public layout reference: 2025 Nacha Operating Rules, Basic Edition,
+// Appendices Four (Returns) and Five (Notifications of Change).
+export const returnAndNocAddendaFields: Record<string, FieldDefinition[]> = {
+  '98': [
+    { start: 0, end: 1, name: 'Record Type Code', description: '7 - Addenda Record' },
+    { start: 1, end: 3, name: 'Addenda Type Code', description: '98 - Notification of Change Addenda' },
+    { start: 3, end: 6, name: 'Change Code', description: 'Cxx code identifying the information to correct' },
+    { start: 6, end: 21, name: 'Original Entry Trace Number', description: 'Trace number from the original forward entry' },
+    { start: 21, end: 27, name: 'Reserved', description: 'Blank/spaces' },
+    { start: 27, end: 35, name: 'Original Receiving DFI Identification', description: 'Receiving DFI identification from the original entry' },
+    { start: 35, end: 64, name: 'Corrected Data', description: 'Corrected information formatted according to the Change Code' },
+    { start: 64, end: 79, name: 'Reserved', description: 'Blank/spaces' },
+    { start: 79, end: 94, name: 'Trace Number', description: 'Trace number of this Notification of Change entry' },
+  ],
+  '99': [
+    { start: 0, end: 1, name: 'Record Type Code', description: '7 - Addenda Record' },
+    { start: 1, end: 3, name: 'Addenda Type Code', description: '99 - Return Addenda' },
+    { start: 3, end: 6, name: 'Return Reason Code', description: 'Rxx code identifying the reason for the return' },
+    { start: 6, end: 21, name: 'Original Entry Trace Number', description: 'Trace number from the original forward entry' },
+    { start: 21, end: 27, name: 'Date of Death', description: 'YYMMDD for return reason R14 or R15; otherwise blank' },
+    { start: 27, end: 35, name: 'Original Receiving DFI Identification', description: 'Receiving DFI identification from the original entry' },
+    { start: 35, end: 79, name: 'Addenda Information', description: 'Optional explanatory return information' },
+    { start: 79, end: 94, name: 'Trace Number', description: 'Trace number of this Return entry' },
+  ],
+};
+
+export const iatReturnAndNocAddendaFields: Record<string, FieldDefinition[]> = {
+  '98': returnAndNocAddendaFields['98'].map(field =>
+    field.name === 'Corrected Data'
+      ? { ...field, end: 70, description: 'Corrected IAT information formatted according to the Change Code' }
+      : field.name === 'Reserved' && field.start === 64
+        ? { ...field, start: 70 }
+        : field,
+  ),
+  '99': [
+    ...returnAndNocAddendaFields['99'].slice(0, 6),
+    { start: 35, end: 45, name: 'Original Forward Entry Payment Amount', description: 'Original IAT forward-entry payment amount in cents' },
+    { start: 45, end: 79, name: 'Addenda Information', description: 'Optional explanatory return information' },
+    returnAndNocAddendaFields['99'][7],
+  ],
+};
+
 export const recordFields: Record<string, FieldDefinition[]> = {
   '1': [
     { start: 0, end: 1, name: 'Record Type Code', description: '1 - File Header Record' },
@@ -191,7 +233,14 @@ export const recordFields: Record<string, FieldDefinition[]> = {
 export function getFieldsForRecord(recordType: string, line?: string, secCode?: string): FieldDefinition[] | undefined {
   let fields: FieldDefinition[] | undefined;
 
-  if (secCode === 'IAT') {
+  if (recordType === '7' && line && line.length >= 3) {
+    const addendaType = line.substring(1, 3);
+    fields = secCode === 'IAT'
+      ? iatReturnAndNocAddendaFields[addendaType]
+      : returnAndNocAddendaFields[addendaType];
+  }
+
+  if (!fields && secCode === 'IAT') {
     if (recordType === '5' || recordType === '6') {
       fields = iatRecordFields[recordType];
     } else if (recordType === '7' && line && line.length >= 3) {

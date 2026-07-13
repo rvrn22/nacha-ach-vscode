@@ -264,9 +264,18 @@ export function findRelatedAchRanges(document: AchDocument, line: number, charac
     for (const entry of batch.entries) {
       const entryLines = new Set(entry.records.map(candidate => candidate.line));
       if (!entryLines.has(line)) { continue; }
-      if ((record.line === entry.detail.line && field.name === 'Trace Number') || (record.kind === 'addenda' && character >= 87)) {
-        addUnique(ranges, sourceRange(entry.detail, 87, 94));
-        for (const addenda of entry.addenda) { addUnique(ranges, sourceRange(addenda, 87, 94)); }
+      const specialAddendaTrace = record.kind === 'addenda'
+        && ['98', '99'].includes(record.raw.substring(1, 3))
+        && field.name === 'Trace Number';
+      const standardAddendaTrace = record.kind === 'addenda'
+        && !['98', '99'].includes(record.raw.substring(1, 3))
+        && character >= 87;
+      if ((record.line === entry.detail.line && field.name === 'Trace Number') || specialAddendaTrace || standardAddendaTrace) {
+        addUnique(ranges, sourceRange(entry.detail, 79, 94));
+        for (const addenda of entry.addenda) {
+          const special = ['98', '99'].includes(addenda.raw.substring(1, 3));
+          addUnique(ranges, sourceRange(addenda, special ? 79 : 87, 94));
+        }
       }
       if (record.line === entry.detail.line && field.name === 'Addenda Record Indicator') {
         for (const addenda of entry.addenda) { addUnique(ranges, sourceRange(addenda, 0, 3)); }

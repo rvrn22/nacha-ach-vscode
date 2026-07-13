@@ -1,5 +1,11 @@
 # Change Log
 
+## Unreleased
+
+- Added dedicated domestic and IAT field layouts for Return (type 99) and Notification of Change (type 98) addenda.
+- Added `COR` and `IATCOR` validation, Return/NOC field rules, full-trace navigation, and deterministic trace synchronization.
+- Added Return/NOC regression coverage and advanced the independent ruleset to `2026.07.2`.
+
 All notable changes to the "nacha-file-parser" extension will be documented in this file.
 
 ## [0.0.6] - 2026-01-07

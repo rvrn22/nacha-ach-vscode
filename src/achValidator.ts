@@ -372,7 +372,10 @@ function validateBatchHeader(batch: AchBatch, context: ValidationContext): void 
     context.add(record, 50, 53, 'ACH-SEC-UNKNOWN-CODE', 'sec', `Unknown or unsupported SEC code '${batch.secCode}'`, { severity: 1, actual: batch.secCode });
   }
   if (batch.secCode === 'IAT') {
-    expectValue(record, 4, 20, 'IAT             ', 'ACH-IAT-INDICATOR', 'IAT Indicator must contain IAT followed by spaces', context);
+    const iatIndicator = record.raw.substring(4, 20);
+    if (!['', 'IAT', 'IATCOR'].includes(iatIndicator.trim())) {
+      context.add(record, 4, 20, 'ACH-IAT-INDICATOR', 'sec', 'IAT Indicator must be blank for a forward IAT entry or contain IATCOR for an IAT Notification of Change', { expected: 'blank or IATCOR', actual: iatIndicator });
+    }
   }
   const effectiveDate = record.raw.substring(69, 75);
   if (!isValidAchDate(effectiveDate)) {
@@ -435,11 +438,71 @@ function validateEntry(entry: AchEntry, batch: AchBatch, context: ValidationCont
     }
   }
 
-  validateEntryAddenda(entry, batch, context);
+  validateEntryAddenda(entry, batch, rule, context);
   return rule;
 }
 
-function validateEntryAddenda(entry: AchEntry, batch: AchBatch, context: ValidationContext): void {
+function validateSpecialAddenda(addenda: AchRecord, detail: AchRecord, context: ValidationContext): void {
+  const addendaType = addenda.raw.substring(1, 3);
+  const code = addenda.raw.substring(3, 6);
+  const originalTrace = addenda.raw.substring(6, 21);
+  const originalRdfi = addenda.raw.substring(27, 35);
+  const trace = addenda.raw.substring(79, 94);
+
+  if (addendaType === '98') {
+    if (!/^C\d{2}$/.test(code)) {
+      context.add(addenda, 3, 6, 'ACH-NOC-CHANGE-CODE', 'field', 'Notification of Change code must use C followed by 2 digits', { expected: 'C00-C99', actual: code });
+    }
+    const correctedDataEnd = addenda.secCode === 'IAT' ? 70 : 64;
+    const firstReserved = addenda.raw.substring(21, 27);
+    const secondReserved = addenda.raw.substring(correctedDataEnd, 79);
+    if (firstReserved.trim().length > 0) {
+      context.add(addenda, 21, 27, 'ACH-NOC-RESERVED', 'field', 'Notification of Change reserved field must be blank', { expected: 'blank', actual: firstReserved });
+    }
+    if (secondReserved.trim().length > 0) {
+      context.add(addenda, correctedDataEnd, 79, 'ACH-NOC-RESERVED', 'field', 'Notification of Change reserved field must be blank', { expected: 'blank', actual: secondReserved });
+    }
+    if (addenda.raw.substring(35, correctedDataEnd).trim().length === 0) {
+      context.add(addenda, 35, correctedDataEnd, 'ACH-NOC-CORRECTED-DATA-REQUIRED', 'field', 'Notification of Change Corrected Data must not be blank');
+    }
+  } else {
+    if (!/^R\d{2}$/.test(code)) {
+      context.add(addenda, 3, 6, 'ACH-RETURN-REASON-CODE', 'field', 'Return Reason Code must use R followed by 2 digits', { expected: 'R00-R99', actual: code });
+    }
+    const dateOfDeath = addenda.raw.substring(21, 27);
+    if (['R14', 'R15'].includes(code)) {
+      if (!isValidAchDate(dateOfDeath)) {
+        context.add(addenda, 21, 27, 'ACH-RETURN-DATE-OF-DEATH', 'field', 'Date of Death is required as a real YYMMDD date for return reason R14 or R15', { expected: 'valid YYMMDD', actual: dateOfDeath });
+      }
+    } else if (dateOfDeath.trim().length > 0) {
+      context.add(addenda, 21, 27, 'ACH-RETURN-DATE-OF-DEATH', 'field', 'Date of Death must be blank unless the Return Reason Code is R14 or R15', { expected: 'blank', actual: dateOfDeath });
+    }
+    if (addenda.secCode === 'IAT' && !/^\d{10}$/.test(addenda.raw.substring(35, 45))) {
+      context.add(addenda, 35, 45, 'ACH-IAT-RETURN-ORIGINAL-AMOUNT', 'field', 'IAT Return Original Forward Entry Payment Amount must contain 10 digits');
+    }
+  }
+
+  if (!/^\d{15}$/.test(originalTrace)) {
+    context.add(addenda, 6, 21, 'ACH-RETURN-NOC-ORIGINAL-TRACE', 'field', 'Original Entry Trace Number must contain 15 digits');
+  }
+  if (!/^\d{8}$/.test(originalRdfi)) {
+    context.add(addenda, 27, 35, 'ACH-RETURN-NOC-ORIGINAL-RDFI', 'field', 'Original Receiving DFI Identification must contain 8 digits');
+  }
+  if (!/^\d{15}$/.test(trace)) {
+    context.add(addenda, 79, 94, 'ACH-RETURN-NOC-TRACE-NUMERIC', 'field', 'Return/NOC Trace Number must contain 15 digits');
+  } else {
+    const expectedTrace = detail.raw.substring(79, 94);
+    if (trace !== expectedTrace) {
+      context.add(addenda, 79, 94, 'ACH-RELATION-ADDENDA-TRACE', 'relational', 'Return/NOC Addenda Trace Number must match the related Entry Detail Trace Number', {
+        expected: expectedTrace,
+        actual: trace,
+        related: [related(detail, 79, 94, 'Related Entry Detail trace number')],
+      });
+    }
+  }
+}
+
+function validateEntryAddenda(entry: AchEntry, batch: AchBatch, rule: TransactionCodeRule | undefined, context: ValidationContext): void {
   const detail = entry.detail;
   const actualCount = entry.addenda.length;
   const indicator = detail.raw.substring(78, 79);
@@ -459,6 +522,29 @@ function validateEntryAddenda(entry: AchEntry, batch: AchBatch, context: Validat
       expected: `0-${maximum}`,
       actual: String(actualCount),
     });
+  }
+
+  const returnAddenda = entry.addenda.filter(addenda => addenda.raw.substring(1, 3) === '99');
+  const nocAddenda = entry.addenda.filter(addenda => addenda.raw.substring(1, 3) === '98');
+  const isIatNoc = batch.secCode === 'IAT' && batch.header.raw.substring(4, 20).trim() === 'IATCOR';
+  const isNoc = batch.secCode === 'COR' || isIatNoc;
+  if (isNoc) {
+    if (actualCount !== 1 || nocAddenda.length !== 1 || returnAddenda.length > 0) {
+      context.add(detail, 78, 79, 'ACH-NOC-ADDENDA-REQUIRED', 'sec', 'A Notification of Change entry requires exactly one addenda record (type 98)', {
+        expected: 'one type 98 addenda',
+        actual: `${nocAddenda.length} type 98, ${returnAddenda.length} type 99`,
+      });
+    }
+    if (detail.raw.substring(29, 39) !== '0000000000') {
+      context.add(detail, 29, 39, 'ACH-NOC-AMOUNT-ZERO', 'sec', 'Notification of Change entries must have a zero amount', { expected: '0000000000', actual: detail.raw.substring(29, 39) });
+    }
+  } else if (rule?.kind === 'return' && (returnAddenda.length !== 1 || (batch.secCode !== 'IAT' && actualCount !== 1))) {
+    context.add(detail, 78, 79, 'ACH-RETURN-ADDENDA-REQUIRED', 'sec', 'A return entry requires exactly one Return addenda record (type 99)', {
+      expected: 'one type 99 addenda',
+      actual: String(returnAddenda.length),
+    });
+  } else if (rule && rule.kind !== 'return' && returnOrNoc) {
+    context.add(detail, 1, 3, 'ACH-RETURN-NOC-TRANSACTION-CODE', 'sec', 'Return/NOC addenda requires a return or Notification of Change transaction code', { actual: detail.raw.substring(1, 3) });
   }
 
   if (batch.secCode === 'IAT') {
@@ -504,13 +590,17 @@ function validateEntryAddenda(entry: AchEntry, batch: AchBatch, context: Validat
         actual: addendaType,
       });
     }
-    const entrySequence = addenda.raw.substring(87, 94);
-    if (entrySequence !== traceSequence) {
-      context.add(addenda, 87, 94, 'ACH-RELATION-ADDENDA-ENTRY-SEQUENCE', 'relational', 'Entry Detail Sequence Number must match the last 7 digits of the related trace number', {
-        expected: traceSequence,
-        actual: entrySequence,
-        related: [related(detail, 87, 94, 'Related Entry Detail trace sequence')],
-      });
+    if (['98', '99'].includes(addendaType)) {
+      validateSpecialAddenda(addenda, detail, context);
+    } else {
+      const entrySequence = addenda.raw.substring(87, 94);
+      if (entrySequence !== traceSequence) {
+        context.add(addenda, 87, 94, 'ACH-RELATION-ADDENDA-ENTRY-SEQUENCE', 'relational', 'Entry Detail Sequence Number must match the last 7 digits of the related trace number', {
+          expected: traceSequence,
+          actual: entrySequence,
+          related: [related(detail, 87, 94, 'Related Entry Detail trace sequence')],
+        });
+      }
     }
     if (batch.secCode !== 'IAT' && addendaType === '05') {
       const sequenceRaw = addenda.raw.substring(83, 87);
