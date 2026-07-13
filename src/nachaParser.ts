@@ -1,3 +1,5 @@
+import { isPaddingRecord, parseAchDocument, type AchDocument } from './achDocument';
+
 export type AchDiagnostic = {
   line: number;
   start: number;
@@ -17,13 +19,12 @@ export type AchSummary = {
 // Basic NACHA/ACH parser: validates line length, record ordering, and field contents.
 // NACHA records are fixed width (94 chars) and begin with type codes:
 // 1: File Header, 5: Batch Header, 6: Entry Detail, 7: Addenda, 8: Batch Control, 9: File Control
-export function parseAch(text: string): AchDiagnostic[] {
+export function parseAch(input: string | AchDocument): AchDiagnostic[] {
   const diags: AchDiagnostic[] = [];
-  const lines = text.split(/\r?\n/);
+  const document = typeof input === 'string' ? parseAchDocument(input) : input;
+  const lines = document.lines;
 
   const recordTypes = new Set(['1', '5', '6', '7', '8', '9']);
-  const isPaddingRow = (line: string) => line.length === 94 && /^9{94}$/.test(line);
-
   // Track simple structure expectations
   let seenFileHeader = false;
   let openBatch = false;
@@ -76,11 +77,12 @@ export function parseAch(text: string): AchDiagnostic[] {
     }
 
     // Skip padding rows (blocking records)
-    if (isPaddingRow(line)) {
+    const record = document.recordByLine.get(i);
+    if (record?.kind === 'padding') {
       continue;
     }
 
-    const firstChar = line.charAt(0);
+    const firstChar = record?.recordType ?? line.charAt(0);
     if (!recordTypes.has(firstChar)) {
       addDiag(i, 0, Math.max(1, Math.min(line.length, 1)), `Unknown record type '${firstChar}'. Expected 1, 5, 6, 7, 8, or 9`, 1);
     }
@@ -165,7 +167,7 @@ export function parseAch(text: string): AchDiagnostic[] {
         currentBatchId = getField(40, 50);
         currentBatchOdfi = getField(79, 87);
         currentBatchNumber = getField(87, 94);
-        currentBatchSec = getField(50, 53).trim();
+        currentBatchSec = record?.secCode ?? getField(50, 53).trim();
 
         const validServiceClasses = currentBatchSec === 'IAT' ? ['200', '220', '225'] : ['200', '220', '225', '280'];
         if (!validServiceClasses.includes(currentBatchServiceClass)) {
@@ -307,7 +309,7 @@ export function parseAch(text: string): AchDiagnostic[] {
         let hasNonPaddingAfter = false;
         for (let j = i + 1; j < lines.length; j++) {
           const afterLine = lines[j];
-          if (afterLine.trim().length > 0 && !isPaddingRow(afterLine)) {
+          if (afterLine.trim().length > 0 && !isPaddingRecord(afterLine)) {
             hasNonPaddingAfter = true;
             break;
           }
@@ -384,25 +386,16 @@ function hasNonEmptyAfter(lines: string[], index: number): boolean {
   return false;
 }
 
-export function parseAchSummary(text: string): AchSummary {
-  const lines = text.split(/\r?\n/);
-  let batches = 0;
-  let entries = 0;
+export function parseAchSummary(input: string | AchDocument): AchSummary {
+  const document = typeof input === 'string' ? parseAchDocument(input) : input;
+  const batches = document.batches.length;
+  const entries = document.batches.reduce((count, batch) => count + batch.entries.length, 0);
   let totalDebit = 0;
   let totalCredit = 0;
 
-  for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
-    const line = lines[lineIdx];
-    if (line.length === 0) {
-      continue;
-    }
-    const type = line.charAt(0);
-
-    if (type === '5') {
-      batches++;
-    } else if (type === '6') {
-      entries++;
-
+  for (const batch of document.batches) {
+    for (const entry of batch.entries) {
+      const line = entry.detail.raw;
       if (line.length >= 39) {
         const transactionCode = line.substring(1, 3);
         const amountStr = line.substring(29, 39);

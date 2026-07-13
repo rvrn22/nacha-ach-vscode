@@ -2,7 +2,15 @@
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
 import { parseAch, parseAchSummary, type AchDiagnostic } from './nachaParser';
-import { recordTypeDescriptions, getFieldAtPosition, recordFields, getFieldsForRecord } from './nachaFields';
+import { getAchFieldAtPosition, parseAchDocument, type AchDocument } from './achDocument';
+import { recordTypeDescriptions } from './nachaFields';
+
+type AchAnalysis = {
+	version: number;
+	document: AchDocument;
+	diagnostics: AchDiagnostic[];
+	summary: ReturnType<typeof parseAchSummary>;
+};
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -18,6 +26,25 @@ export function activate(context: vscode.ExtensionContext) {
 	// Create diagnostic collection
 	const diagnosticCollection = vscode.languages.createDiagnosticCollection('ach');
 	context.subscriptions.push(diagnosticCollection);
+
+	const analysisCache = new Map<string, AchAnalysis>();
+	const getAnalysis = (doc: vscode.TextDocument): AchAnalysis => {
+		const key = doc.uri.toString();
+		const cached = analysisCache.get(key);
+		if (cached?.version === doc.version) {
+			return cached;
+		}
+
+		const achDocument = parseAchDocument(doc.getText());
+		const analysis: AchAnalysis = {
+			version: doc.version,
+			document: achDocument,
+			diagnostics: parseAch(achDocument),
+			summary: parseAchSummary(achDocument),
+		};
+		analysisCache.set(key, analysis);
+		return analysis;
+	};
 
 	// The command has been defined in the package.json file
 	// Now provide the implementation of the command with registerCommand
@@ -142,12 +169,11 @@ export function activate(context: vscode.ExtensionContext) {
 			return;
 		}
 
-		const text = doc.getText();
+		const analysis = getAnalysis(doc);
 
 		// Update diagnostics
 		const diagnostics: vscode.Diagnostic[] = [];
-		const achDiags: AchDiagnostic[] = parseAch(text);
-		for (const d of achDiags) {
+		for (const d of analysis.diagnostics) {
 			const range = new vscode.Range(
 				new vscode.Position(d.line, d.start),
 				new vscode.Position(d.line, d.end)
@@ -157,7 +183,7 @@ export function activate(context: vscode.ExtensionContext) {
 		diagnosticCollection.set(doc.uri, diagnostics);
 
 		// Update status bar
-		const summary = parseAchSummary(text);
+		const summary = analysis.summary;
 		statusBarItem.text = `$(file-code) Batches: ${summary.batches} $(list-ordered) Entries: ${summary.entries} $(symbol-numeric) Credits: $${summary.totalCredit.toFixed(2)} Debits: $${summary.totalDebit.toFixed(2)}`;
 		statusBarItem.tooltip = `NACHA File Summary\n` +
 			`Batches: ${summary.batches}\n` +
@@ -188,76 +214,32 @@ export function activate(context: vscode.ExtensionContext) {
 
 	const applyBatchRowDecorations = (editor: vscode.TextEditor) => {
 		const doc = editor.document;
-		const lineCount = doc.lineCount;
+		const achDocument = getAnalysis(doc).document;
 		const perDecorationRanges: vscode.Range[][] = batchRowDecorations.map(() => []);
 		const paddingRanges: vscode.Range[] = [];
 		const separatorRanges: vscode.Range[] = [];
-		let inBatch = false;
-		let batchStart = -1;
-		let batchIndex = 0;
 
-		const isBatchRecord = (t: string) => t === '5' || t === '6' || t === '7' || t === '8';
-		const isPaddingRow = (text: string) => text.length === 94 && /^9{94}$/.test(text);
+		for (const header of achDocument.fileHeaders) {
+			perDecorationRanges[0].push(doc.lineAt(header.line).range);
+		}
 
-		for (let i = 0; i < lineCount; i++) {
-			const line = doc.lineAt(i);
-			const text = line.text;
-			if (text.length === 0) { continue; }
-
-			// Check for padding rows
-			if (isPaddingRow(text)) {
-				paddingRanges.push(line.range);
-				continue;
+		for (let batchIndex = 0; batchIndex < achDocument.batches.length; batchIndex++) {
+			const batch = achDocument.batches[batchIndex];
+			const colorIdx = (batchIndex + 1) % batchRowDecorations.length;
+			for (const record of batch.records) {
+				perDecorationRanges[colorIdx].push(doc.lineAt(record.line).range);
 			}
-
-			const t = text.charAt(0);
-
-			// File header gets its own color
-			if (t === '1') {
-				const colorIdx = batchIndex % batchRowDecorations.length;
-				perDecorationRanges[colorIdx].push(line.range);
-				batchIndex++;
-				continue;
-			}
-
-			if (t === '5' && !inBatch) {
-				inBatch = true;
-				batchStart = i;
-				continue;
-			}
-
-			if (t === '8' && inBatch) {
-				// finalize batch range from batchStart..i
-				const colorIdx = batchIndex % batchRowDecorations.length;
-				for (let j = batchStart; j <= i; j++) {
-					perDecorationRanges[colorIdx].push(doc.lineAt(j).range);
-				}
-				// Add separator after batch control record
-				separatorRanges.push(doc.lineAt(i).range);
-				batchIndex++;
-				inBatch = false;
-				batchStart = -1;
-				continue;
-			}
-
-			// File control (type 9) gets the current batch color
-			if (t === '9') {
-				const colorIdx = batchIndex % batchRowDecorations.length;
-				perDecorationRanges[colorIdx].push(line.range);
-				continue;
+			if (batch.control) {
+				separatorRanges.push(doc.lineAt(batch.control.line).range);
 			}
 		}
 
-		// If file ends with an open batch (missing 8), highlight until last batch line
-		if (inBatch && batchStart >= 0) {
-			const colorIdx = batchIndex % batchRowDecorations.length;
-			for (let j = batchStart; j < lineCount; j++) {
-				const text = doc.lineAt(j).text;
-				if (text.length === 0) { continue; }
-				const t = text.charAt(0);
-				if (!isBatchRecord(t)) { break; }
-				perDecorationRanges[colorIdx].push(doc.lineAt(j).range);
-			}
+		const controlColorIdx = (achDocument.batches.length + 1) % batchRowDecorations.length;
+		for (const control of achDocument.fileControls) {
+			perDecorationRanges[controlColorIdx].push(doc.lineAt(control.line).range);
+		}
+		for (const padding of achDocument.paddingRecords) {
+			paddingRanges.push(doc.lineAt(padding.line).range);
 		}
 
 		// Clear old per-type decorations and apply batch decorations
@@ -273,38 +255,18 @@ export function activate(context: vscode.ExtensionContext) {
 
 	const applyFieldDecorations = (editor: vscode.TextEditor) => {
 		const doc = editor.document;
-		const lineCount = doc.lineCount;
+		const achDocument = getAnalysis(doc).document;
 		const perDecorationRanges: vscode.Range[][] = fieldDecorations.map(() => []);
 
-		const isPaddingRow = (text: string) => text.length === 94 && /^9{94}$/.test(text);
-
-		let currentSecCode = '';
-
-		for (let i = 0; i < lineCount; i++) {
-			const line = doc.lineAt(i);
-			const text = line.text;
-			if (text.length === 0 || isPaddingRow(text)) { continue; }
-
-			const recordType = text.charAt(0);
-
-			// Update SEC code context if we hit a Batch Header
-			if (recordType === '5' && text.length >= 53) {
-				currentSecCode = text.substring(50, 53).trim();
-			} else if (recordType === '8' || recordType === '9' || recordType === '1') {
-				// Reset or ignore SEC code for these
-				if (recordType === '8') { currentSecCode = ''; }
-			}
-
-			const fields = getFieldsForContext(recordType, text, currentSecCode);
-
-			if (!fields) { continue; }
-
+		for (const record of achDocument.records) {
+			if (record.kind === 'padding') { continue; }
 			// Apply alternating colors to fields
-			for (let fieldIdx = 0; fieldIdx < fields.length; fieldIdx++) {
-				const field = fields[fieldIdx];
+			for (let fieldIdx = 0; fieldIdx < record.fields.length; fieldIdx++) {
+				const field = record.fields[fieldIdx];
+				if (field.start >= record.raw.length) { continue; }
 				const colorIdx = fieldIdx % fieldDecorations.length;
-				const startPos = new vscode.Position(i, field.start);
-				const endPos = new vscode.Position(i, Math.min(field.end, text.length));
+				const startPos = new vscode.Position(record.line, field.start);
+				const endPos = new vscode.Position(record.line, Math.min(field.end, record.raw.length));
 				perDecorationRanges[colorIdx].push(new vscode.Range(startPos, endPos));
 			}
 		}
@@ -312,17 +274,6 @@ export function activate(context: vscode.ExtensionContext) {
 		for (let idx = 0; idx < fieldDecorations.length; idx++) {
 			editor.setDecorations(fieldDecorations[idx], perDecorationRanges[idx]);
 		}
-	};
-
-	// Helper to get fields based on context (local to applyFieldDecorations for now, or export if needed)
-	const getFieldsForContext = (recordType: string, line: string, secCode: string) => {
-		const dummyPos = 0;
-		// Since getFieldAtPosition returns a single field, we need a way to get all fields.
-		// Let's add an export to nachaFields or just use the same logic.
-		// For now, I'll use a hacky way since the library doesn't export the field arrays directly as a function.
-		// Actually, let's just use the exported recordFields/iatRecordFields/addendaIATFields but those are in nachaFields.ts
-		// I will update nachaFields.ts to export a getFieldsForRecord function.
-		return getFieldsForRecord(recordType, line, secCode);
 	};
 
 	const updateForEditor = () => {
@@ -357,22 +308,19 @@ export function activate(context: vscode.ExtensionContext) {
 	// Register hover provider for ACH files
 	const hoverProvider = vscode.languages.registerHoverProvider('ach', {
 		provideHover(document: vscode.TextDocument, position: vscode.Position): vscode.Hover | undefined {
-			const line = document.lineAt(position.line);
-			const text = line.text;
-
-			if (text.length === 0) {
+			const record = getAnalysis(document).document.recordByLine.get(position.line);
+			if (!record) {
 				return undefined;
 			}
 
-			const recordType = text.charAt(0);
-			const recordDesc = recordTypeDescriptions[recordType];
+			const recordDesc = recordTypeDescriptions[record.recordType];
 
-			if (!recordDesc) {
+			if (!recordDesc && record.kind !== 'padding') {
 				return undefined;
 			}
 
 			// Check for padding row
-			if (text.length === 94 && /^9{94}$/.test(text)) {
+			if (record.kind === 'padding') {
 				return new vscode.Hover(
 					new vscode.MarkdownString(
 						`**Padding Record**\n\nBlocking/filler record used to pad file to required block size (multiple of 10 records).`
@@ -380,30 +328,17 @@ export function activate(context: vscode.ExtensionContext) {
 				);
 			}
 
-			let secCode = '';
-			if (['5', '6', '7', '8'].includes(recordType)) {
-				// Find the last batch header to get SEC code
-				for (let i = position.line; i >= 0; i--) {
-					const l = document.lineAt(i).text;
-					if (l.charAt(0) === '5' && l.length >= 53) {
-						secCode = l.substring(50, 53).trim();
-						break;
-					}
-					if (l.charAt(0) === '1') { break; } // Stopped at file header
-				}
-			}
-
-			const field = getFieldAtPosition(recordType, position.character, text, secCode);
+			const field = getAchFieldAtPosition(record, position.character);
 
 			if (!field) {
 				// Show record type info if not over a specific field
 				return new vscode.Hover(
-					new vscode.MarkdownString(`**${recordDesc}**${secCode ? ` (${secCode})` : ''}`)
+					new vscode.MarkdownString(`**${recordDesc}**${record.secCode ? ` (${record.secCode})` : ''}`)
 				);
 			}
 
 			// Build hover content with field details
-			const value = text.substring(field.start, field.end).trim();
+			const value = field.value;
 			const markdown = new vscode.MarkdownString();
 			markdown.appendMarkdown(`**${field.name}**\n\n`);
 			markdown.appendMarkdown(`${field.description}\n\n`);
@@ -435,7 +370,8 @@ export function activate(context: vscode.ExtensionContext) {
 			if (e.document.languageId === 'ach') {
 				updateForEditor();
 			}
-		})
+		}),
+		vscode.workspace.onDidCloseTextDocument(doc => analysisCache.delete(doc.uri.toString()))
 	);
 }
 
