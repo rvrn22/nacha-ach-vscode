@@ -519,7 +519,7 @@ function validateSecEntryFields(
 
   const record = entry.detail;
   const secCode = batch.secCode;
-  const standardAccountSecs = ['ACK', 'ARC', 'ATX', 'BOC', 'CCD', 'CTX', 'PPD', 'RCK', 'TEL', 'WEB'];
+  const standardAccountSecs = ['ACK', 'ARC', 'ATX', 'BOC', 'CCD', 'CIE', 'CTX', 'DNE', 'ENR', 'PPD', 'RCK', 'TEL', 'WEB'];
   if (standardAccountSecs.includes(secCode) && record.raw.substring(12, 29).trim().length === 0) {
     context.add(record, 12, 29, 'ACH-SEC-ACCOUNT-REQUIRED', 'sec', `DFI Account Number is required for ${secCode} entries`);
   }
@@ -557,6 +557,37 @@ function validateSecEntryFields(
       if (record.raw.substring(74, 76).trim().length > 0) {
         context.add(record, 74, 76, 'ACH-ATX-RESERVED', 'field', 'ATX Entry Detail reserved field must be blank');
       }
+    }
+  }
+
+  if (secCode === 'CIE') {
+    if (record.raw.substring(39, 54).trim().length === 0) {
+      context.add(record, 39, 54, 'ACH-CIE-INDIVIDUAL-NAME-REQUIRED', 'sec', 'Individual Name is required for a CIE entry');
+    }
+    if (record.raw.substring(54, 76).trim().length === 0) {
+      context.add(record, 54, 76, 'ACH-CIE-INDIVIDUAL-ID-REQUIRED', 'sec', 'Individual Identification Number is required for a CIE entry');
+    }
+  }
+
+  if (secCode === 'DNE' && record.raw.substring(54, 76).trim().length === 0) {
+    context.add(record, 54, 76, 'ACH-DNE-INDIVIDUAL-NAME-REQUIRED', 'sec', 'Individual Name is required for a DNE entry');
+  }
+
+  if (secCode === 'ENR') {
+    const declaredRaw = record.raw.substring(54, 58);
+    if (!/^\d{4}$/.test(declaredRaw)) {
+      context.add(record, 54, 58, 'ACH-ENR-ADDENDA-COUNT-NUMERIC', 'sec', 'ENR Number of Addenda Records must contain four digits', { actual: declaredRaw });
+    } else {
+      const expected = String(entry.addenda.length).padStart(4, '0');
+      if (declaredRaw !== expected) {
+        context.add(record, 54, 58, 'ACH-ENR-ADDENDA-COUNT', 'sec', 'Declared ENR addenda count does not match actual attached addenda records', { expected, actual: declaredRaw });
+      }
+    }
+    if (record.raw.substring(58, 74).trim().length === 0) {
+      context.add(record, 58, 74, 'ACH-ENR-RECEIVER-REQUIRED', 'sec', 'Receiving Company Name / ID Number is required for an ENR entry');
+    }
+    if (record.raw.substring(74, 76).trim().length > 0) {
+      context.add(record, 74, 76, 'ACH-ENR-RESERVED', 'field', 'ENR Entry Detail reserved field must be blank');
     }
   }
 
@@ -634,6 +665,8 @@ function validateEntry(entry: AchEntry, batch: AchBatch, context: ValidationCont
     context.add(record, amountStart, amountEnd, 'ACH-FIELD-AMOUNT-NUMERIC', 'field', `Amount must contain ${amountEnd - amountStart} digits`, { actual: amountRaw });
   } else if (['ACK', 'ATX'].includes(batch.secCode) && amount !== 0n) {
     context.add(record, amountStart, amountEnd, 'ACH-ACK-AMOUNT-ZERO', 'sec', `${batch.secCode} acknowledgment entries must have a zero amount`, { expected: '0000000000', actual: amountRaw });
+  } else if (['DNE', 'ENR'].includes(batch.secCode) && amount !== 0n) {
+    context.add(record, amountStart, amountEnd, 'ACH-SEC-NONMONETARY-AMOUNT', 'sec', `${batch.secCode} entries must have a zero amount`, { expected: '0000000000', actual: amountRaw });
   } else if (rule && ['prenote', 'zeroDollar'].includes(rule.kind) && amount !== 0n) {
     const prenote = isPrenoteTransaction(rule, batch.secCode);
     const zeroDollar = isZeroDollarTransaction(rule, batch.secCode);
@@ -879,6 +912,13 @@ function validateEntryAddenda(entry: AchEntry, batch: AchBatch, rule: Transactio
     });
   }
 
+  if (['DNE', 'ENR'].includes(batch.secCode) && rule?.kind !== 'return' && actualCount === 0) {
+    context.add(detail, 78, 79, 'ACH-SEC-ADDENDA-REQUIRED', 'sec', `${batch.secCode} entries require at least one type 05 addenda record`, {
+      expected: 'at least one type 05 addenda',
+      actual: '0',
+    });
+  }
+
   if (batch.secCode === 'IAT') {
     const declaredRaw = detail.raw.substring(12, 16);
     const declared = isDigits(declaredRaw) ? Number(declaredRaw) : undefined;
@@ -936,6 +976,9 @@ function validateEntryAddenda(entry: AchEntry, batch: AchBatch, rule: Transactio
       }
     }
     if (batch.secCode !== 'IAT' && addendaType === '05') {
+      if (['DNE', 'ENR'].includes(batch.secCode) && addenda.raw.substring(3, 83).trim().length === 0) {
+        context.add(addenda, 3, 83, 'ACH-SEC-ADDENDA-CONTENT-REQUIRED', 'sec', `${batch.secCode} Payment Related Information must not be blank`);
+      }
       const sequenceRaw = addenda.raw.substring(83, 87);
       const expectedSequence = String(index + 1).padStart(4, '0');
       if (sequenceRaw !== expectedSequence) {

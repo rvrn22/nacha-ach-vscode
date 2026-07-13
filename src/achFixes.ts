@@ -52,6 +52,7 @@ const directFixTitles: Record<string, string> = {
   'ACH-RELATION-ADDENDA-TRACE': 'Synchronize Return/NOC Addenda Trace Number',
   'ACH-IAT-ADDENDA-COUNT': 'Recalculate IAT addenda count',
   'ACH-ATX-ADDENDA-COUNT': 'Recalculate ATX addenda count',
+  'ACH-ENR-ADDENDA-COUNT': 'Recalculate ENR addenda count',
 };
 
 const derivedCodes = new Set([
@@ -85,6 +86,7 @@ const derivedCodes = new Set([
   'ACH-RELATION-ADDENDA-TRACE',
   'ACH-IAT-ADDENDA-COUNT',
   'ACH-ATX-ADDENDA-COUNT',
+  'ACH-ENR-ADDENDA-COUNT',
 ]);
 
 function editKey(edit: AchTextEdit): string {

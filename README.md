@@ -33,6 +33,12 @@ A professional Visual Studio Code extension for developers and treasury professi
 - **Optional Addenda**: Allows one type-`05` acknowledgment addenda and validates its indicator, sequence, and Entry Detail trace link.
 - **ATX Counts**: Checks the four-digit declared addenda count and reserved columns in the corporate acknowledgment layout.
 
+### 🏛️ CIE/DNE/ENR Specialized Entries
+- **Contextual Layouts**: Decodes CIE's reversed name/reference fields and ENR's count, agency, reserved, and discretionary fields correctly.
+- **Required Identity Data**: Validates the account, individual, customer-reference, and receiving-agency fields required by each format.
+- **Non-Monetary Notices**: Enforces transaction codes `23`/`33`, zero amounts, and mandatory type-`05` addenda for DNE and ENR entries.
+- **Addenda Controls**: Enforces CIE/DNE single-addenda limits, ENR's 9,999-record maximum, nonblank DNE/ENR convention data, and safe ENR count repair.
+
 ### 🌐 Full IAT Support
 - **International Transactions**: Comprehensive support for International ACH Transactions (IAT).
 - **Contextual Parsing**: Switches field definitions automatically when an IAT batch is detected.

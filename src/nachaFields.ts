@@ -330,6 +330,29 @@ const atxEntryFields: FieldDefinition[] = [
   ...recordFields['6'].slice(9),
 ];
 
+// Public layout reference: Nacha Operating Rules Basic Appendices,
+// Appendix Three, CIE, DNE, and ENR Entry Detail Records.
+const cieEntryFields = entryFieldsWith({
+  39: { name: 'Individual Name', description: 'Name of the consumer Originator initiating the bill payment' },
+  54: { name: 'Individual Identification Number', description: 'Accounting reference by which the Originator is known to the Receiver' },
+});
+
+const dneEntryFields = entryFieldsWith({
+  39: { name: 'Individual Identification Number', description: 'Optional identifier for the deceased benefit recipient' },
+  54: { name: 'Individual Name', description: 'Name of the deceased benefit recipient' },
+});
+
+const enrEntryFields: FieldDefinition[] = [
+  ...recordFields['6'].slice(0, 7).map(field => field.start === 39
+    ? { ...field, name: 'Identification Number', description: 'Optional Originator identification; space-filled for Federal Government enrollment entries' }
+    : field),
+  { start: 54, end: 58, name: 'Number of Addenda Records', description: 'Four-digit count of addenda records attached to this enrollment entry' },
+  { start: 58, end: 74, name: 'Receiving Company Name / ID Number', description: 'Name or identifier of the agency receiving the enrollment' },
+  { start: 74, end: 76, name: 'Reserved', description: 'Blank/spaces' },
+  { start: 76, end: 78, name: 'Discretionary Data', description: 'Optional data for specialized handling' },
+  ...recordFields['6'].slice(9),
+];
+
 // These SEC classes share the standard 94-character Entry Detail shape but
 // assign different business meaning to positions 40-78.
 const entryFieldsBySec: Record<string, FieldDefinition[]> = {
@@ -351,7 +374,10 @@ const entryFieldsBySec: Record<string, FieldDefinition[]> = {
     39: { name: 'Identification Number', description: 'Optional number used by the Originator to identify the entry' },
     54: { name: 'Receiving Company Name', description: 'Name of the corporate Receiver' },
   }),
+  CIE: cieEntryFields,
   CTX: ctxEntryFields,
+  DNE: dneEntryFields,
+  ENR: enrEntryFields,
   WEB: entryFieldsWith({
     39: { name: 'Individual Identification Number / P2P Originator Name', description: 'Optional for WEB debits; contains the consumer Originator name for a WEB credit' },
     76: { name: 'Payment Type Code', description: 'Optional Originator-defined code; R, S, and ST have conventional meanings' },

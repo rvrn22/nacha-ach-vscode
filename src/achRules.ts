@@ -120,6 +120,9 @@ export function transactionCodeCompatibility(rule: TransactionCodeRule, secCode:
   if (['ACK', 'ATX'].includes(secCode) && !['24', '34'].includes(rule.code)) {
     return `${secCode} acknowledgment entries require transaction code 24 or 34`;
   }
+  if (['DNE', 'ENR'].includes(secCode) && rule.kind !== 'return' && !['23', '33'].includes(rule.code)) {
+    return `${secCode} non-monetary entries require transaction code 23 or 33`;
+  }
   if (rule.kind === 'zeroDollar' && !zeroDollarSecCodes.has(secCode) && !['ACK', 'ATX'].includes(secCode)) {
     return `Transaction code ${rule.code} is a zero-dollar code not supported by SEC ${secCode}`;
   }
@@ -139,10 +142,11 @@ export function entryAmountRangeForSec(secCode: string): readonly [start: number
 export function maximumAddendaForSec(secCode: string): number | undefined {
   if (['ACK', 'ATX'].includes(secCode)) { return 1; }
   if (secCode === 'COR') { return 1; }
-  if (['PPD', 'CCD', 'WEB'].includes(secCode)) { return 1; }
+  if (['CIE', 'DNE', 'PPD', 'CCD', 'WEB'].includes(secCode)) { return 1; }
   if (['ARC', 'BOC', 'POP', 'RCK', 'TEL'].includes(secCode)) { return 0; }
   if (type02AddendaSecCodes.has(secCode)) { return 1; }
   if (secCode === 'CTX') { return 9999; }
+  if (secCode === 'ENR') { return 9999; }
   if (secCode === 'IAT') { return 12; }
   return undefined;
 }

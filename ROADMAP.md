@@ -223,13 +223,25 @@ Status: Completed
 - [x] Enforce the optional single type `05` addenda and its sequence/trace relationships.
 - [x] Add focused ACK/ATX layout and validation regression coverage.
 
+## Post-roadmap — CIE/DNE/ENR specialized entries
+
+Status: Completed
+
+- [x] Decode CIE's reversed Individual Name/Identification fields and ENR's four-digit addenda-count layout.
+- [x] Validate required CIE, DNE, and ENR account, individual, and Receiver data.
+- [x] Enforce DNE/ENR transaction codes, zero amounts, mandatory type `05` addenda, and nonblank convention data.
+- [x] Enforce CIE/DNE single-addenda limits and ENR's 9,999-addenda maximum.
+- [x] Validate and safely repair ENR declared addenda counts.
+- [x] Add valid, targeted-invalid, layout, content, and fix regression coverage.
+
 ## Test strategy
 
 - [ ] Golden valid/invalid fixtures for every supported SEC code.
   - [x] Common domestic ARC, BOC, RCK, CCD, CTX, PPD, TEL, and WEB layouts.
   - [x] Specialized ADV layout.
   - [x] Specialized ACK and ATX layouts.
-  - [ ] Specialized CIE, DNE, ENR, MTE, POS, SHR, and TRX layouts.
+  - [x] Specialized CIE, DNE, and ENR layouts.
+  - [ ] Specialized MTE, POS, SHR, and TRX layouts.
 - [ ] Returns, NOCs, reversals, prenotes, balanced/unbalanced files, and zero-dollar entries.
   - [x] Returns and NOCs.
   - [x] Reversals.
