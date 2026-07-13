@@ -7,6 +7,7 @@
 export type TransactionDirection = 'credit' | 'debit';
 export type AccountType = 'checking' | 'savings' | 'generalLedger' | 'loan' | 'settlement';
 export type TransactionKind = 'payment' | 'prenote' | 'zeroDollar' | 'return' | 'settlement';
+export type ContextualTransactionKind = TransactionKind | 'acknowledgment' | 'deathNotice' | 'enrollment';
 
 export type TransactionCodeRule = {
   code: string;
@@ -63,13 +64,41 @@ export function isPrenoteTransaction(rule: TransactionCodeRule | undefined, secC
   return rule?.kind === 'prenote' && !['DNE', 'ENR'].includes(secCode);
 }
 
+export function isZeroDollarTransaction(rule: TransactionCodeRule | undefined, secCode: string): boolean {
+  return rule?.kind === 'zeroDollar' && ['CCD', 'CTX', 'IAT'].includes(secCode);
+}
+
+export function contextualTransactionKind(
+  rule: TransactionCodeRule | undefined,
+  secCode: string,
+): ContextualTransactionKind | 'unknown' {
+  if (!rule) { return 'unknown'; }
+  if (['ACK', 'ATX'].includes(secCode) && ['24', '34'].includes(rule.code)) { return 'acknowledgment'; }
+  if (secCode === 'DNE' && ['23', '33'].includes(rule.code)) { return 'deathNotice'; }
+  if (secCode === 'ENR' && ['23', '33'].includes(rule.code)) { return 'enrollment'; }
+  return rule.kind;
+}
+
+export function describeTransactionCode(code: string, secCode: string): string | undefined {
+  const rule = transactionCodes.get(code);
+  if (!rule) { return undefined; }
+  const account = rule.accountType === 'generalLedger'
+    ? 'General-ledger'
+    : `${rule.accountType.charAt(0).toUpperCase()}${rule.accountType.slice(1)}`;
+  const kind = contextualTransactionKind(rule, secCode);
+  if (kind === 'acknowledgment') { return `${account} acknowledgment`; }
+  if (kind === 'deathNotice') { return `${account} death notification`; }
+  if (kind === 'enrollment') { return `${account} automated enrollment`; }
+  return rule.description;
+}
+
 export const knownSecCodes = new Set([
   'ACK', 'ADV', 'ARC', 'ATX', 'BOC', 'CCD', 'CIE', 'COR', 'CTX', 'DNE', 'ENR',
   'IAT', 'MTE', 'POP', 'POS', 'PPD', 'RCK', 'SHR', 'TEL', 'TRX', 'WEB',
 ]);
 
 const consumerAccountSecCodes = new Set(['ARC', 'BOC', 'CIE', 'MTE', 'POP', 'POS', 'PPD', 'RCK', 'SHR', 'TEL', 'WEB']);
-const zeroDollarSecCodes = new Set(['ACK', 'ATX', 'CCD', 'CTX', 'IAT']);
+const zeroDollarSecCodes = new Set(['CCD', 'CTX', 'IAT']);
 const debitOnlySecCodes = new Set(['ARC', 'BOC', 'POP', 'POS', 'RCK', 'TEL']);
 const creditOnlySecCodes = new Set(['ACK', 'ADV', 'ATX', 'CIE', 'DNE', 'ENR']);
 const type05AddendaSecCodes = new Set(['ACK', 'ATX', 'CCD', 'CIE', 'CTX', 'DNE', 'ENR', 'PPD', 'TRX', 'WEB']);
@@ -82,7 +111,10 @@ export function transactionCodeCompatibility(rule: TransactionCodeRule, secCode:
   if (consumerAccountSecCodes.has(secCode) && !['checking', 'savings'].includes(rule.accountType)) {
     return `${secCode} entries use consumer checking or savings transaction codes`;
   }
-  if (rule.kind === 'zeroDollar' && !zeroDollarSecCodes.has(secCode)) {
+  if (['ACK', 'ATX'].includes(secCode) && !['24', '34'].includes(rule.code)) {
+    return `${secCode} acknowledgment entries require transaction code 24 or 34`;
+  }
+  if (rule.kind === 'zeroDollar' && !zeroDollarSecCodes.has(secCode) && !['ACK', 'ATX'].includes(secCode)) {
     return `Transaction code ${rule.code} is a zero-dollar code not supported by SEC ${secCode}`;
   }
   if (debitOnlySecCodes.has(secCode) && rule.direction !== 'debit') {
@@ -95,6 +127,7 @@ export function transactionCodeCompatibility(rule: TransactionCodeRule, secCode:
 }
 
 export function maximumAddendaForSec(secCode: string): number | undefined {
+  if (['ACK', 'ATX'].includes(secCode)) { return 1; }
   if (secCode === 'COR') { return 1; }
   if (['PPD', 'CCD', 'WEB'].includes(secCode)) { return 1; }
   if (['ARC', 'BOC', 'POP', 'RCK', 'TEL'].includes(secCode)) { return 0; }

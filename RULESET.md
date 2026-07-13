@@ -1,6 +1,6 @@
 # ACH Validation Ruleset
 
-Ruleset version: `2026.07.4`
+Ruleset version: `2026.07.5`
 
 The validation ruleset is versioned independently from the VS Code extension package. JSON and SARIF reports include this version so validation results remain reproducible when extension and CLI releases change.
 

@@ -1,5 +1,5 @@
 import type { AchField, AchRecord } from './achDocument';
-import { transactionCodes } from './achRules';
+import { describeTransactionCode, transactionCodes } from './achRules';
 import { formatAchCents } from './nachaParser';
 
 export type DecodedAchValue = {
@@ -76,7 +76,8 @@ export function decodeAchField(record: AchRecord, field: AchField, maskSensitive
 
   if (field.name === 'Transaction Code') {
     const rule = transactionCodes.get(value);
-    return { display: rule ? `${value} — ${rule.description}` : value, raw, masked: false };
+    const description = describeTransactionCode(value, record.secCode);
+    return { display: rule && description ? `${value} — ${description}` : value, raw, masked: false };
   }
   if (field.name === 'Receiving DFI Identification' && /^\d{8}$/.test(value)) {
     const checkDigit = record.raw.substring(11, 12);

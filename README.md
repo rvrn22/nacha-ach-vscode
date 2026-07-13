@@ -40,6 +40,13 @@ A professional Visual Studio Code extension for developers and treasury professi
 - **Visible Counts**: Shows prenote entries in the decoded explorer, file summary, and redacted JSON report.
 - **Timing Boundary**: Does not claim to verify the three-Banking-Day waiting period from a single file.
 
+### 0️⃣ Zero-Dollar Entry Awareness
+- **Contextual Classification**: Identifies zero-dollar CCD, CTX, and IAT entries without mislabeling ACK/ATX acknowledgment entries that reuse transaction codes 24 and 34.
+- **Required Remittance Data**: Requires at least one addenda record for zero-dollar CCD and CTX entries while preserving the seven mandatory IAT addenda rules.
+- **Zero-Amount Validation**: Reports a dedicated diagnostic when a zero-dollar entry carries a nonzero amount.
+- **ACK/ATX Compatibility**: Restricts acknowledgment batches to transaction codes 24 or 34 and displays acknowledgment-specific descriptions.
+- **Visible Counts**: Shows zero-dollar entries in the decoded explorer, file summary, and redacted JSON report.
+
 ### 🎨 Visual Intelligence
 - **Alternating Field Highlighting**: Provides visual cues for field boundaries with alternating colors to make fixed-width files readable.
 - **Interactive Hovers**: Hover over any position to see the field name, description, start/end positions, and the raw value.
@@ -71,7 +78,7 @@ A professional Visual Studio Code extension for developers and treasury professi
 ### 📋 Profiles, Reports, and Automation
 - **Named Profiles**: Define institution/operator profiles that extend strict or unblocked validation behavior.
 - **Explained Overrides**: Change or suppress exact rules, categories, or all rules only with a recorded reason.
-- **Versioned Rules**: Reports identify ruleset version `2026.07.4` independently from the extension version.
+- **Versioned Rules**: Reports identify ruleset version `2026.07.5` independently from the extension version.
 - **Redacted Reports**: Export JSON or SARIF without exposing account numbers and individual identifiers.
 - **Headless CLI**: Run the same parser and validator in CI, scripts, and pre-upload workflows.
 - **Text Detection**: High-confidence ACH content in `.txt` files can switch to ACH language mode with one click.

@@ -98,7 +98,7 @@ suite('ACH Prenotification Support Test Suite', () => {
     const entry = makeRecord('6', [[1, '23']]);
     const document = parseAchDocument([batch, entry].join('\n'));
 
-    assert.strictEqual(document.batches[0].entries[0].transactionKind, 'prenote');
+    assert.strictEqual(document.batches[0].entries[0].transactionKind, 'deathNotice');
     assert.strictEqual(document.batches[0].entries[0].isPrenote, false);
     assert.strictEqual(parseAchSummary(document).prenoteEntries, 0);
   });

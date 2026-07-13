@@ -5,6 +5,7 @@ import {
   knownSecCodes,
   maximumAddendaForSec,
   isPrenoteTransaction,
+  isZeroDollarTransaction,
   transactionCodeCompatibility,
   transactionCodes,
   type TransactionCodeRule,
@@ -438,13 +439,14 @@ function validateEntry(entry: AchEntry, batch: AchBatch, context: ValidationCont
     context.add(record, 29, 39, 'ACH-FIELD-AMOUNT-NUMERIC', 'field', 'Amount must contain 10 digits', { actual: amountRaw });
   } else if (rule && ['prenote', 'zeroDollar'].includes(rule.kind) && amount !== 0n) {
     const prenote = isPrenoteTransaction(rule, batch.secCode);
+    const zeroDollar = isZeroDollarTransaction(rule, batch.secCode);
     context.add(
       record,
       29,
       39,
-      prenote ? 'ACH-PRENOTE-AMOUNT-ZERO' : 'ACH-FIELD-NONMONETARY-AMOUNT',
+      prenote ? 'ACH-PRENOTE-AMOUNT-ZERO' : zeroDollar ? 'ACH-ZERO-DOLLAR-AMOUNT' : 'ACH-FIELD-NONMONETARY-AMOUNT',
       'field',
-      `${prenote ? 'Prenotification entry' : rule.description} must have a zero amount`,
+      `${prenote ? 'Prenotification entry' : zeroDollar ? 'Zero-dollar entry' : rule.description} must have a zero amount`,
       { expected: '0000000000', actual: amountRaw },
     );
   }
@@ -581,6 +583,13 @@ function validateEntryAddenda(entry: AchEntry, batch: AchBatch, rule: Transactio
     });
   } else if (rule && rule.kind !== 'return' && returnOrNoc) {
     context.add(detail, 1, 3, 'ACH-RETURN-NOC-TRANSACTION-CODE', 'sec', 'Return/NOC addenda requires a return or Notification of Change transaction code', { actual: detail.raw.substring(1, 3) });
+  }
+
+  if (isZeroDollarTransaction(rule, batch.secCode) && ['CCD', 'CTX'].includes(batch.secCode) && actualCount === 0) {
+    context.add(detail, 78, 79, 'ACH-ZERO-DOLLAR-ADDENDA-REQUIRED', 'sec', `Zero-dollar ${batch.secCode} entries require at least one addenda record`, {
+      expected: '1',
+      actual: '0',
+    });
   }
 
   if (batch.secCode === 'IAT') {

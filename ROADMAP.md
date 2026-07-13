@@ -141,6 +141,18 @@ Status: Completed
 - [x] Avoid unverifiable claims about the three-Banking-Day waiting period.
 - [x] Remove the legacy field-only amount fix that could stale aggregate controls.
 
+## Post-roadmap — Zero-dollar entry awareness
+
+Status: Completed
+
+- [x] Classify zero-dollar CCD, CTX, and IAT entries with SEC context.
+- [x] Distinguish ACK/ATX acknowledgments that share transaction codes 24 and 34.
+- [x] Require zero amounts and the mandated CCD/CTX addenda records.
+- [x] Preserve mandatory IAT addenda validation for zero-dollar IAT entries.
+- [x] Surface zero-dollar counts in the explorer, summaries, and reports.
+- [x] Validate ACK/ATX transaction-code compatibility and contextual descriptions.
+- [x] Add valid, invalid, IAT, ACK, explorer, and report regression coverage.
+
 ## Test strategy
 
 - [ ] Golden valid/invalid fixtures for every supported SEC code.
@@ -148,6 +160,7 @@ Status: Completed
   - [x] Returns and NOCs.
   - [x] Reversals.
   - [x] Prenotes.
+  - [x] Zero-dollar entries.
 - [ ] IAT addenda presence, order, count, and trace relationships.
 - [ ] CRLF/LF, tabs, non-ASCII characters, short/long records, and padding edge cases.
 - [ ] Property-style mutations of counts, hashes, totals, routing digits, and record order.

@@ -1,5 +1,11 @@
 import { getFieldsForRecord, type FieldDefinition } from './nachaFields';
-import { isPrenoteTransaction, transactionCodes, type TransactionKind } from './achRules';
+import {
+  contextualTransactionKind,
+  isPrenoteTransaction,
+  isZeroDollarTransaction,
+  transactionCodes,
+  type ContextualTransactionKind,
+} from './achRules';
 
 export type AchRecordKind =
   | 'fileHeader'
@@ -37,8 +43,9 @@ export type AchEntry = {
   detail: AchRecord;
   addenda: AchRecord[];
   records: AchRecord[];
-  transactionKind: TransactionKind | 'unknown';
+  transactionKind: ContextualTransactionKind | 'unknown';
   isPrenote: boolean;
+  isZeroDollar: boolean;
 };
 
 export type AchBatch = {
@@ -167,8 +174,9 @@ export function parseAchDocument(text: string): AchDocument {
             detail: record,
             addenda: [],
             records: [record],
-            transactionKind: transaction?.kind ?? 'unknown',
+            transactionKind: contextualTransactionKind(transaction, currentBatch.secCode),
             isPrenote: isPrenoteTransaction(transaction, currentBatch.secCode),
+            isZeroDollar: isZeroDollarTransaction(transaction, currentBatch.secCode),
           };
           currentBatch.entries.push(entry);
           currentBatch.records.push(record);

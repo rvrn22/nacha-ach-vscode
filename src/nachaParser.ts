@@ -21,6 +21,8 @@ export type AchSummary = {
   reversalEntries: number;
   batchesWithPrenotes: number;
   prenoteEntries: number;
+  batchesWithZeroDollarEntries: number;
+  zeroDollarEntries: number;
   totalDebitCents: bigint;
   totalCreditCents: bigint;
   netAmountCents: bigint;
@@ -58,6 +60,11 @@ export function parseAchSummary(input: string | AchDocument): AchSummary {
     batchesWithPrenotes: document.batches.filter(batch => batch.entries.some(entry => entry.isPrenote)).length,
     prenoteEntries: document.batches.reduce(
       (count, batch) => count + batch.entries.filter(entry => entry.isPrenote).length,
+      0,
+    ),
+    batchesWithZeroDollarEntries: document.batches.filter(batch => batch.entries.some(entry => entry.isZeroDollar)).length,
+    zeroDollarEntries: document.batches.reduce(
+      (count, batch) => count + batch.entries.filter(entry => entry.isZeroDollar).length,
       0,
     ),
     totalDebitCents,

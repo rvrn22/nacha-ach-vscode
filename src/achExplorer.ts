@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { decodeAchField, isSensitiveAchField, maskAchValue } from './achDecode';
 import type { AchBatch, AchDocument, AchEntry, AchField, AchRecord } from './achDocument';
-import { transactionCodes } from './achRules';
+import { describeTransactionCode, transactionCodes } from './achRules';
 import { formatAchCents, type AchSummary } from './nachaParser';
 import type { AchDiagnostic } from './achTypes';
 
@@ -144,7 +144,8 @@ export class AchExplorerProvider implements vscode.TreeDataProvider<AchExplorerN
     fileNode.iconPath = new vscode.ThemeIcon('file-binary');
     const reversalText = summary.reversalBatches > 0 ? ` · ${summary.reversalEntries} reversal entries` : '';
     const prenoteText = summary.prenoteEntries > 0 ? ` · ${summary.prenoteEntries} prenotes` : '';
-    const summaryText = `${summary.batches} batches · ${summary.entries} entries${reversalText}${prenoteText} · $${formatAchCents(summary.totalCreditCents)} CR · $${formatAchCents(summary.totalDebitCents)} DR`;
+    const zeroDollarText = summary.zeroDollarEntries > 0 ? ` · ${summary.zeroDollarEntries} zero-dollar` : '';
+    const summaryText = `${summary.batches} batches · ${summary.entries} entries${reversalText}${prenoteText}${zeroDollarText} · $${formatAchCents(summary.totalCreditCents)} CR · $${formatAchCents(summary.totalDebitCents)} DR`;
     addDiagnosticBadge(fileNode, diagnostics, summaryText);
 
     for (const header of document.fileHeaders) {
@@ -248,14 +249,14 @@ export class AchExplorerProvider implements vscode.TreeDataProvider<AchExplorerN
     maskSensitiveValues: boolean,
   ): AchExplorerNode {
     const transactionCode = trimmed(entry.detail, 1, 3);
-    const transaction = transactionCodes.get(transactionCode);
     const traceSequence = trimmed(entry.detail, 87, 94) || String(index + 1);
-    const node = new AchExplorerNode(`Entry ${traceSequence} · ${transaction?.description ?? transactionCode}`, 'entry', vscode.TreeItemCollapsibleState.Collapsed);
+    const description = describeTransactionCode(transactionCode, entry.detail.secCode);
+    const node = new AchExplorerNode(`Entry ${traceSequence} · ${description ?? transactionCode}`, 'entry', vscode.TreeItemCollapsibleState.Collapsed);
     node.id = `${uri.toString()}#entry-${entry.detail.line}`;
-    node.iconPath = new vscode.ThemeIcon(entry.isPrenote ? 'preview' : 'symbol-field');
+    node.iconPath = new vscode.ThemeIcon(entry.isPrenote ? 'preview' : entry.isZeroDollar ? 'symbol-constant' : 'symbol-field');
     setSourceCommand(node, uri, entry.detail.line, 0, entry.detail.raw.length);
-    const description = [entryAmount(entry), entryAccount(entry, maskSensitiveValues), `${entry.addenda.length} addenda`].filter(Boolean).join(' · ');
-    addDiagnosticBadge(node, diagnosticsForLines(diagnostics, entry.records.map(record => record.line)), description);
+    const entryDescription = [entryAmount(entry), entryAccount(entry, maskSensitiveValues), `${entry.addenda.length} addenda`].filter(Boolean).join(' · ');
+    addDiagnosticBadge(node, diagnosticsForLines(diagnostics, entry.records.map(record => record.line)), entryDescription);
 
     node.add(this.createRecordNode(uri, entry.detail, diagnostics, maskSensitiveValues));
     for (const addenda of entry.addenda) {
