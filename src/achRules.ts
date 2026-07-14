@@ -94,12 +94,12 @@ export function describeTransactionCode(code: string, secCode: string): string |
 
 export const knownSecCodes = new Set([
   'ACK', 'ADV', 'ARC', 'ATX', 'BOC', 'CCD', 'CIE', 'COR', 'CTX', 'DNE', 'ENR',
-  'IAT', 'MTE', 'POP', 'POS', 'PPD', 'RCK', 'SHR', 'TEL', 'TRX', 'WEB',
+  'IAT', 'MTE', 'POP', 'POS', 'PPD', 'RCK', 'SHR', 'TEL', 'TRC', 'TRX', 'WEB', 'XCK',
 ]);
 
-const consumerAccountSecCodes = new Set(['ARC', 'BOC', 'CIE', 'MTE', 'POP', 'POS', 'PPD', 'RCK', 'SHR', 'TEL', 'WEB']);
+const consumerAccountSecCodes = new Set(['ARC', 'BOC', 'CIE', 'MTE', 'POP', 'POS', 'PPD', 'RCK', 'SHR', 'TEL', 'TRC', 'WEB', 'XCK']);
 const zeroDollarSecCodes = new Set(['CCD', 'CTX', 'IAT']);
-const debitOnlySecCodes = new Set(['ARC', 'BOC', 'POP', 'POS', 'RCK', 'SHR', 'TEL', 'TRX']);
+const debitOnlySecCodes = new Set(['ARC', 'BOC', 'POP', 'POS', 'RCK', 'SHR', 'TEL', 'TRC', 'TRX', 'XCK']);
 const creditOnlySecCodes = new Set(['ACK', 'ATX', 'CIE', 'DNE', 'ENR']);
 const type05AddendaSecCodes = new Set(['ACK', 'ATX', 'CCD', 'CIE', 'CTX', 'DNE', 'ENR', 'PPD', 'TRX', 'WEB']);
 const type02AddendaSecCodes = new Set(['MTE', 'POS', 'SHR']);
@@ -111,8 +111,8 @@ export function transactionCodeCompatibility(rule: TransactionCodeRule, secCode:
   if (rule.kind === 'settlement' && secCode !== 'ADV') {
     return `Automated Accounting Advice transaction code ${rule.code} is valid only for SEC ADV`;
   }
-  if (secCode === 'COR' && !['21', '26', '41', '46', '51', '56'].includes(rule.code)) {
-    return `COR entries require transaction code 21, 26, 41, 46, 51, or 56`;
+  if (secCode === 'COR' && !['21', '26', '31', '36', '41', '46', '51', '56'].includes(rule.code)) {
+    return `COR entries require a checking, savings, general-ledger, or loan return/NOC transaction code`;
   }
   if (consumerAccountSecCodes.has(secCode) && !['checking', 'savings'].includes(rule.accountType)) {
     return `${secCode} entries use consumer checking or savings transaction codes`;
@@ -120,8 +120,14 @@ export function transactionCodeCompatibility(rule: TransactionCodeRule, secCode:
   if (['ACK', 'ATX'].includes(secCode) && !['24', '34'].includes(rule.code)) {
     return `${secCode} acknowledgment entries require transaction code 24 or 34`;
   }
-  if (['DNE', 'ENR'].includes(secCode) && rule.kind !== 'return' && !['23', '33'].includes(rule.code)) {
-    return `${secCode} non-monetary entries require transaction code 23 or 33`;
+  if (secCode === 'DNE' && !['21', '23', '31', '33'].includes(rule.code)) {
+    return `DNE entries require transaction code 21, 23, 31, or 33`;
+  }
+  if (secCode === 'ENR' && !['23', '33'].includes(rule.code)) {
+    return `ENR entries require transaction code 23 or 33`;
+  }
+  if (secCode === 'IAT' && rule.kind === 'zeroDollar' && !['checking', 'savings'].includes(rule.accountType)) {
+    return `IAT zero-dollar entries require transaction code 24, 29, 34, or 39`;
   }
   if (rule.kind === 'zeroDollar' && !zeroDollarSecCodes.has(secCode) && !['ACK', 'ATX'].includes(secCode)) {
     return `Transaction code ${rule.code} is a zero-dollar code not supported by SEC ${secCode}`;
@@ -140,10 +146,12 @@ export function entryAmountRangeForSec(secCode: string): readonly [start: number
 }
 
 export function maximumAddendaForSec(secCode: string): number | undefined {
+  if (secCode === 'ADV') { return 0; }
   if (['ACK', 'ATX'].includes(secCode)) { return 1; }
   if (secCode === 'COR') { return 1; }
   if (['CIE', 'DNE', 'PPD', 'CCD', 'WEB'].includes(secCode)) { return 1; }
-  if (['ARC', 'BOC', 'POP', 'RCK', 'TEL'].includes(secCode)) { return 0; }
+  if (['ARC', 'BOC', 'POP', 'RCK', 'TEL', 'TRC'].includes(secCode)) { return 0; }
+  if (secCode === 'XCK') { return 1; }
   if (type02AddendaSecCodes.has(secCode)) { return 1; }
   if (['CTX', 'TRX'].includes(secCode)) { return 9999; }
   if (secCode === 'ENR') { return 9999; }
@@ -155,6 +163,7 @@ export function allowedAddendaTypesForSec(secCode: string): ReadonlySet<string> 
   if (secCode === 'COR') { return new Set(['98']); }
   if (type05AddendaSecCodes.has(secCode)) { return new Set(['05']); }
   if (type02AddendaSecCodes.has(secCode)) { return new Set(['02']); }
+  if (secCode === 'XCK') { return new Set(['05']); }
   if (secCode === 'IAT') { return new Set(['10', '11', '12', '13', '14', '15', '16', '17', '18']); }
   return undefined;
 }

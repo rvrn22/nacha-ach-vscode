@@ -30,7 +30,7 @@ export const iatRecordFields: Record<string, FieldDefinition[]> = {
     { start: 66, end: 69, name: 'ISO Destination Currency Code', description: '3-character ISO currency code' },
     { start: 69, end: 75, name: 'Effective Entry Date', description: 'YYMMDD - Date transactions should post' },
     { start: 75, end: 78, name: 'Settlement Date (Julian)', description: 'Reserved/blank or Julian date' },
-    { start: 78, end: 79, name: 'Originator Status Code', description: 'Always 1' },
+    { start: 78, end: 79, name: 'Originator Status Code', description: '0=ACH Operator ADV, 1=DFI, 2=Federal Government' },
     { start: 79, end: 87, name: 'Originating DFI Identification', description: 'First 8 digits of routing number' },
     { start: 87, end: 94, name: 'Batch Number', description: 'Sequential batch number within file' }
   ],
@@ -277,7 +277,7 @@ export const recordFields: Record<string, FieldDefinition[]> = {
     { start: 63, end: 69, name: 'Company Descriptive Date', description: 'Optional date in any format' },
     { start: 69, end: 75, name: 'Effective Entry Date', description: 'YYMMDD - Date transactions should post' },
     { start: 75, end: 78, name: 'Settlement Date (Julian)', description: 'Reserved/blank or Julian date' },
-    { start: 78, end: 79, name: 'Originator Status Code', description: 'Always 1' },
+    { start: 78, end: 79, name: 'Originator Status Code', description: '0=ACH Operator ADV, 1=DFI, 2=Federal Government' },
     { start: 79, end: 87, name: 'Originating DFI Identification', description: 'First 8 digits of routing number' },
     { start: 87, end: 94, name: 'Batch Number', description: 'Sequential batch number within file' }
   ],
@@ -424,6 +424,11 @@ const trxEntryFields: FieldDefinition[] = [
   ...recordFields['6'].slice(9),
 ];
 
+const truncatedCheckEntryFields = entryFieldsWith({
+  39: { name: 'Check Serial Number', description: 'Serial number of the truncated, lost, or destroyed check' },
+  54: { name: 'Individual Name / Receiving Company Name', description: 'Name associated with the source check' },
+});
+
 // These SEC classes share the standard 94-character Entry Detail shape but
 // assign different business meaning to positions 40-78.
 const entryFieldsBySec: Record<string, FieldDefinition[]> = {
@@ -456,11 +461,13 @@ const entryFieldsBySec: Record<string, FieldDefinition[]> = {
   TRX: trxEntryFields,
   WEB: entryFieldsWith({
     39: { name: 'Individual Identification Number / P2P Originator Name', description: 'Optional for WEB debits; contains the consumer Originator name for a WEB credit' },
-    76: { name: 'Payment Type Code', description: 'Optional Originator-defined code; R, S, and ST have conventional meanings' },
+    76: { name: 'Payment Type Code', description: 'Required WEB classification: R=recurring, S=single, ST=standing authorization' },
   }),
   TEL: entryFieldsWith({
     76: { name: 'Payment Type Code', description: 'Optional Originator-defined code; R, S, and ST have conventional meanings' },
   }),
+  TRC: truncatedCheckEntryFields,
+  XCK: truncatedCheckEntryFields,
 };
 
 export function getFieldsForRecord(recordType: string, line?: string, secCode?: string): FieldDefinition[] | undefined {

@@ -50,6 +50,19 @@ suite('ACH Navigation and Reading Aids Test Suite', () => {
     assert.strictEqual(entry.children.filter(symbol => symbol.name.startsWith('Addenda')).length, 2);
   });
 
+  test('Uses the ADV four-digit sequence in Outline labels', () => {
+    const model = parseAchDocument([
+      makeRecord('1'),
+      makeRecord('5', [[1, '280'], [4, 'OPERATOR'], [40, '1234567890'], [50, 'ADV'], [79, '06100010'], [87, '0000001']]),
+      makeRecord('6', [[1, '81'], [90, '0042']]),
+      makeRecord('8', [[1, '280'], [44, '1234567890'], [79, '06100010'], [87, '0000001']]),
+      makeRecord('9'),
+    ].join('\n'));
+    const symbols = new AchDocumentSymbolProvider(() => model).provideDocumentSymbols({} as vscode.TextDocument);
+    const batch = symbols[0].children.find(symbol => symbol.name === 'Batch 0000001');
+    assert.ok(batch?.children.some(symbol => symbol.name === 'Entry 0042'));
+  });
+
   test('Provides folding ranges for batches, entries, and padding', () => {
     const model = navigationDocument();
     const provider = new AchFoldingRangeProvider(() => model);

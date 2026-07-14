@@ -55,9 +55,28 @@ function setSourceCommand(node: AchExplorerNode, uri: vscode.Uri, line: number, 
   };
 }
 
+const diagnosticIndexCache = new WeakMap<AchDiagnostic[], Map<number, AchDiagnostic[]>>();
+
+function diagnosticIndex(diagnostics: AchDiagnostic[]): Map<number, AchDiagnostic[]> {
+  const cached = diagnosticIndexCache.get(diagnostics);
+  if (cached) { return cached; }
+  const index = new Map<number, AchDiagnostic[]>();
+  for (const diagnostic of diagnostics) {
+    const lineDiagnostics = index.get(diagnostic.line) ?? [];
+    lineDiagnostics.push(diagnostic);
+    index.set(diagnostic.line, lineDiagnostics);
+  }
+  diagnosticIndexCache.set(diagnostics, index);
+  return index;
+}
+
 function diagnosticsForLines(diagnostics: AchDiagnostic[], lines: Iterable<number>): AchDiagnostic[] {
-  const lineSet = new Set(lines);
-  return diagnostics.filter(diagnostic => lineSet.has(diagnostic.line));
+  const index = diagnosticIndex(diagnostics);
+  return [...new Set(lines)].flatMap(line => index.get(line) ?? []);
+}
+
+function diagnosticsForLine(diagnostics: AchDiagnostic[], line: number): AchDiagnostic[] {
+  return diagnosticIndex(diagnostics).get(line) ?? [];
 }
 
 function addDiagnosticBadge(node: AchExplorerNode, diagnostics: AchDiagnostic[], baseDescription?: string): void {
@@ -287,7 +306,7 @@ export class AchExplorerProvider implements vscode.TreeDataProvider<AchExplorerN
     node.id = `${uri.toString()}#record-${record.line}`;
     node.iconPath = new vscode.ThemeIcon(record.kind.includes('Control') ? 'checklist' : 'symbol-structure');
     setSourceCommand(node, uri, record.line, 0, record.raw.length);
-    addDiagnosticBadge(node, diagnostics.filter(diagnostic => diagnostic.line === record.line), `line ${record.line + 1}`);
+    addDiagnosticBadge(node, diagnosticsForLine(diagnostics, record.line), `line ${record.line + 1}`);
     this.recordNodeByLine.set(record.line, node);
 
     for (const field of record.fields) {
@@ -319,9 +338,8 @@ export class AchExplorerProvider implements vscode.TreeDataProvider<AchExplorerN
     if (decoded.masked) { tooltip.appendMarkdown('\nSensitive value masked by ACH Explorer settings.'); }
     node.tooltip = tooltip;
 
-    const fieldDiagnostics = diagnostics.filter(diagnostic =>
-      diagnostic.line === record.line
-      && diagnostic.start < field.range.end
+    const fieldDiagnostics = diagnosticsForLine(diagnostics, record.line).filter(diagnostic =>
+      diagnostic.start < field.range.end
       && diagnostic.end > field.range.start,
     );
     addDiagnosticBadge(node, fieldDiagnostics, fieldDescription);

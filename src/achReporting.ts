@@ -1,5 +1,6 @@
 import { getAchFieldAtPosition, type AchDocument } from './achDocument';
 import { isSensitiveAchField } from './achDecode';
+import { ACH_RULES_EFFECTIVE_DATE, externalComplianceRequirements } from './achRuleData';
 import type { AchSummary } from './nachaParser';
 import type { AchDiagnostic, AchValidationProfile } from './achTypes';
 
@@ -36,7 +37,7 @@ function reportDiagnostic(document: AchDocument, diagnostic: AchDiagnostic) {
     location: {
       line: diagnostic.line + 1,
       startColumn: diagnostic.start + 1,
-      endColumn: Math.max(diagnostic.start + 1, diagnostic.end),
+      endColumn: Math.max(diagnostic.start + 1, diagnostic.end + 1),
     },
     expected: sensitive && diagnostic.expected !== undefined ? '[REDACTED]' : diagnostic.expected,
     actual: sensitive && diagnostic.actual !== undefined ? '[REDACTED]' : diagnostic.actual,
@@ -44,7 +45,7 @@ function reportDiagnostic(document: AchDocument, diagnostic: AchDiagnostic) {
     related: diagnostic.related?.map(item => ({
       line: item.line + 1,
       startColumn: item.start + 1,
-      endColumn: Math.max(item.start + 1, item.end),
+      endColumn: Math.max(item.start + 1, item.end + 1),
       message: item.message,
     })),
   };
@@ -56,6 +57,12 @@ export function createAchJsonReport(input: AchReportInput) {
     generatedAt: input.generatedAt ?? new Date().toISOString(),
     redacted: true,
     rulesVersion: input.profile.rulesVersion,
+    rulesEffectiveDate: ACH_RULES_EFFECTIVE_DATE,
+    scope: {
+      id: 'deterministic-ach-file-format',
+      complianceCertified: false,
+      externalRequirements: [...externalComplianceRequirements],
+    },
     profile: {
       id: input.profile.id,
       displayName: input.profile.displayName,
@@ -84,6 +91,8 @@ export function createAchJsonReport(input: AchReportInput) {
     },
     result: {
       valid: input.diagnostics.every(diagnostic => diagnostic.severity !== 0),
+      formatValid: input.diagnostics.every(diagnostic => diagnostic.severity !== 0),
+      complianceCertified: false,
       errors: input.diagnostics.filter(diagnostic => diagnostic.severity === 0).length,
       warnings: input.diagnostics.filter(diagnostic => diagnostic.severity === 1).length,
       information: input.diagnostics.filter(diagnostic => diagnostic.severity >= 2).length,
@@ -109,6 +118,12 @@ export function createAchSarifRun(input: AchReportInput) {
       },
     },
     artifacts: [{ location: { uri: input.fileName } }],
+    properties: {
+      rulesEffectiveDate: ACH_RULES_EFFECTIVE_DATE,
+      validationScope: 'deterministic-ach-file-format',
+      complianceCertified: false,
+      externalRequirements: [...externalComplianceRequirements],
+    },
     results: input.diagnostics.map(diagnostic => {
       const reported = reportDiagnostic(input.document, diagnostic);
       return {

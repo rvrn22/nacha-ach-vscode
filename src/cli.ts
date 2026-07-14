@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { parseAchDocument } from './achDocument';
-import { resolveAchValidationProfile } from './achProfiles';
+import { isBuiltInAchValidationProfile, resolveAchValidationProfile } from './achProfiles';
 import { createAchJsonReport, createAchSarifRun, serializeAchReport, type AchReportInput } from './achReporting';
 import { parseAch, parseAchSummary } from './nachaParser';
 import type { AchRuleSeverityName } from './achTypes';
@@ -94,6 +94,11 @@ export async function runCli(args: string[], io: CliIo = defaultIo): Promise<num
 
   if (files.length === 0) {
     io.writeError(usage());
+    return 2;
+  }
+
+  if (!isBuiltInAchValidationProfile(profileId)) {
+    io.writeError(`Unknown --profile value '${profileId}'. Expected nacha, unblocked, or balanced.\n`);
     return 2;
   }
 

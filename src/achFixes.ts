@@ -18,7 +18,6 @@ const directFixTitles: Record<string, string> = {
   'ACH-FIELD-RECORD-SIZE': 'Set Record Size to 094',
   'ACH-FIELD-BLOCKING-FACTOR': 'Set Blocking Factor to 10',
   'ACH-FIELD-FORMAT-CODE': 'Set Format Code to 1',
-  'ACH-FIELD-ORIGINATOR-STATUS': 'Set Originator Status Code to 1',
   'ACH-FIELD-ROUTING-CHECK-DIGIT': 'Correct routing check digit',
   'ACH-REVERSAL-DESCRIPTION': 'Format Company Entry Description as REVERSAL',
   'ACH-MICRO-DESCRIPTION': 'Format Company Entry Description as ACCTVERIFY',
@@ -97,9 +96,49 @@ function editKey(edit: AchTextEdit): string {
   return `${edit.startLine}:${edit.startCharacter}-${edit.endLine}:${edit.endCharacter}`;
 }
 
+function sourceValueIsValid(document: AchDocument, diagnostic: AchDiagnostic): boolean {
+  const expected = diagnostic.expected;
+  if (expected === undefined) { return false; }
+  if (diagnostic.code === 'ACH-RELATION-SERVICE-CLASS') {
+    if (!['200', '220', '225', '280'].includes(expected)) { return false; }
+    const batch = document.batches.find(candidate => candidate.control?.line === diagnostic.line);
+    return Boolean(batch) && (expected === '280') === (batch?.secCode === 'ADV');
+  }
+  if (diagnostic.code === 'ACH-RELATION-COMPANY-ID') {
+    return expected.length === 10 && expected.trim().length > 0 && /^[\x20-\x7E]+$/.test(expected);
+  }
+  if (diagnostic.code === 'ACH-RELATION-ODFI-ID') {
+    return /^\d{8}$/.test(expected);
+  }
+  if (diagnostic.code === 'ACH-RELATION-BATCH-NUMBER') {
+    if (!/^\d{7}$/.test(expected)) { return false; }
+    const batchIndex = document.batches.findIndex(batch => batch.control?.line === diagnostic.line);
+    if (batchIndex < 0) { return false; }
+    const number = BigInt(expected);
+    const previous = document.batches[batchIndex - 1]?.header.raw.substring(87, 94);
+    const next = document.batches[batchIndex + 1]?.header.raw.substring(87, 94);
+    return (!previous || !/^\d{7}$/.test(previous) || number > BigInt(previous))
+      && (!next || !/^\d{7}$/.test(next) || number < BigInt(next));
+  }
+  if (['ACH-RELATION-ADDENDA-TRACE', 'ACH-RELATION-TERMINAL-ADDENDA-TRACE'].includes(diagnostic.code)) {
+    if (!/^\d{15}$/.test(expected)) { return false; }
+    const owner = document.batches.find(batch => batch.entries.some(entry => entry.detail.raw.substring(79, 94) === expected));
+    if (!owner || expected.substring(0, 8) !== owner.header.raw.substring(79, 87)) { return false; }
+    const traces = document.batches.flatMap(batch => batch.entries.map(entry => entry.detail.raw.substring(79, 94)));
+    if (traces.some(trace => !/^\d{15}$/.test(trace)) || new Set(traces).size !== traces.length) { return false; }
+    const batchTraces = owner.entries.map(entry => entry.detail.raw.substring(79, 94));
+    return batchTraces.every((trace, index) => index === 0 || BigInt(trace) > BigInt(batchTraces[index - 1]));
+  }
+  if (diagnostic.code === 'ACH-RELATION-ADDENDA-ENTRY-SEQUENCE') { return /^\d{7}$/.test(expected); }
+  if (diagnostic.code === 'ACH-RELATION-ADDENDA-SEQUENCE') { return /^\d{4}$/.test(expected); }
+  if (diagnostic.code === 'ACH-RELATION-ADDENDA-INDICATOR') { return /^[01]$/.test(expected); }
+  return true;
+}
+
 function directDiagnosticEdit(document: AchDocument, diagnostic: AchDiagnostic): AchTextEdit | undefined {
   const title = directFixTitles[diagnostic.code];
   if (!title || diagnostic.expected === undefined) { return undefined; }
+  if (diagnostic.code.startsWith('ACH-RELATION-') && !sourceValueIsValid(document, diagnostic)) { return undefined; }
   const width = diagnostic.end - diagnostic.start;
   if (diagnostic.expected.length !== width) { return undefined; }
   const line = document.lines[diagnostic.line] ?? '';
@@ -138,6 +177,7 @@ function unambiguousRecordPaddingEdit(document: AchDocument, diagnostic: AchDiag
 
 export function buildPaddingEdit(document: AchDocument): AchTextEdit | undefined {
   if (document.fileControls.length !== 1) { return undefined; }
+  if (document.lines.slice(0, -1).some(line => line.length === 0)) { return undefined; }
   const control = document.fileControls[0];
   const recordsAfterControl = document.records.filter(record => record.line > control.line);
   if (recordsAfterControl.some(record => record.kind !== 'padding')) { return undefined; }
@@ -166,7 +206,7 @@ export function buildPaddingEdit(document: AchDocument): AchTextEdit | undefined
 
 export function buildNormalizedBlockCountEdit(document: AchDocument): AchTextEdit | undefined {
   const control = document.fileControls.length === 1 ? document.fileControls[0] : undefined;
-  if (!control || control.raw.length < 13) { return undefined; }
+  if (!control || control.raw.length < 13 || document.lines.slice(0, -1).some(line => line.length === 0)) { return undefined; }
   const nonPaddingCount = document.records.filter(record => record.kind !== 'padding').length;
   const expected = String(Math.ceil(nonPaddingCount / 10)).padStart(6, '0');
   if (control.raw.substring(7, 13) === expected) { return undefined; }
@@ -194,19 +234,30 @@ export function collectAchFixEdits(
   mode: AchFixMode = 'all',
 ): AchTextEdit[] {
   const edits = new Map<string, AchTextEdit>();
+  const addEdit = (edit: AchTextEdit): void => {
+    const key = editKey(edit);
+    const existing = edits.get(key);
+    const zeroWidth = edit.startLine === edit.endLine && edit.startCharacter === edit.endCharacter;
+    if (existing && zeroWidth && existing.startLine === existing.endLine && existing.startCharacter === existing.endCharacter) {
+      edits.set(key, { ...existing, newText: existing.newText + edit.newText, title: `${existing.title}; ${edit.title}` });
+      return;
+    }
+    if (!existing) { edits.set(key, edit); }
+  };
   const paddingEdit = mode === 'all' && diagnostics.some(diagnostic => diagnostic.code === 'ACH-PHYSICAL-PADDING-COUNT')
     ? buildPaddingEdit(document)
     : undefined;
   for (const diagnostic of diagnostics) {
     if (mode === 'derived' && !derivedCodes.has(diagnostic.code)) { continue; }
+    if (paddingEdit && diagnostic.code === 'ACH-PHYSICAL-PADDING-COUNT') { continue; }
     if (paddingEdit && ['ACH-RELATION-FILE-BLOCK-COUNT', 'ACH-FIELD-FILE-BLOCK-COUNT'].includes(diagnostic.code)) { continue; }
     const edit = fixForAchDiagnostic(document, diagnostic);
-    if (edit) { edits.set(editKey(edit), edit); }
+    if (edit) { addEdit(edit); }
   }
   if (paddingEdit) {
-    edits.set(editKey(paddingEdit), paddingEdit);
+    addEdit(paddingEdit);
     const blockCountEdit = buildNormalizedBlockCountEdit(document);
-    if (blockCountEdit) { edits.set(editKey(blockCountEdit), blockCountEdit); }
+    if (blockCountEdit) { addEdit(blockCountEdit); }
   }
   return [...edits.values()].sort((left, right) =>
     left.startLine - right.startLine || left.startCharacter - right.startCharacter,

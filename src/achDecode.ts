@@ -25,6 +25,8 @@ const secDescriptions: Record<string, string> = {
   CIE: 'Customer Initiated Entry',
   COR: 'Notification of Change',
   CTX: 'Corporate Trade Exchange',
+  DNE: 'Death Notification Entry',
+  ENR: 'Automated Enrollment Entry',
   IAT: 'International ACH Transaction',
   MTE: 'Machine Transfer Entry',
   POP: 'Point-of-Purchase Entry',
@@ -33,7 +35,10 @@ const secDescriptions: Record<string, string> = {
   RCK: 'Re-presented Check Entry',
   SHR: 'Shared Network Transaction',
   TEL: 'Telephone-Initiated Entry',
+  TRC: 'Truncated Entry',
+  TRX: 'Truncated Entries Exchange',
   WEB: 'Internet-Initiated/Mobile Entry',
+  XCK: 'Destroyed Check Entry',
 };
 
 const cardTransactionTypeDescriptions: Record<string, string> = {

@@ -12,6 +12,14 @@ import {
   type TransactionCodeRule,
 } from './achRules';
 import {
+  futureReturnReasonCodes,
+  isoCountryCodes,
+  isoCurrencyCodes,
+  returnReasonSecCompatibility,
+  validNotificationOfChangeCodes,
+  validReturnReasonCodes,
+} from './achRuleData';
+import {
   nachaValidationProfile,
   type AchDiagnostic,
   type AchDiagnosticSeverity,
@@ -113,7 +121,9 @@ class ValidationContext {
 }
 
 function related(record: AchRecord, start: number, end: number, message: string): AchRelatedLocation {
-  return { line: record.line, start, end, message };
+  const safeStart = Math.min(Math.max(start, 0), record.raw.length);
+  const safeEnd = Math.max(safeStart, Math.min(end, record.raw.length));
+  return { line: record.line, start: safeStart, end: safeEnd, message };
 }
 
 function isDigits(value: string): boolean {
@@ -159,6 +169,10 @@ function isValidAchTimeWithSeconds(value: string): boolean {
 }
 
 const cardTransactionTypeCodes = new Set(['01', '02', '03', '11', '12', '13', '21', '99']);
+const iatTransactionTypeCodes = new Set([
+  'ANN', 'BUS', 'DEP', 'LOA', 'MIS', 'MOR', 'PEN', 'RLS', 'SAL', 'TAX',
+  'ARC', 'BOC', 'MTE', 'POP', 'POS', 'RCK', 'SHR', 'TEL', 'WEB',
+]);
 
 function calculateCheckDigit(routing8: string): number {
   const weights = [3, 7, 1, 3, 7, 1, 3, 7];
@@ -169,12 +183,17 @@ function calculateCheckDigit(routing8: string): number {
   return (10 - (sum % 10)) % 10;
 }
 
+function physicalRecordCount(document: AchDocument): number {
+  const trailingTerminator = document.lines.length > 1 && document.lines.at(-1) === '' ? 1 : 0;
+  return document.lines.length - trailingTerminator;
+}
+
 function validatePhysical(document: AchDocument, context: ValidationContext): void {
   for (let line = 0; line < document.lines.length; line++) {
     const raw = document.lines[line];
     if (raw.length === 0) {
       if (line < document.lines.length - 1) {
-        context.addLine(line, 0, 'ACH-PHYSICAL-BLANK-LINE', 'physical', 'Blank records are not allowed inside an ACH file', { severity: 1 });
+        context.addLine(line, 0, 'ACH-PHYSICAL-BLANK-LINE', 'physical', 'Blank records are not allowed inside an ACH file');
       }
       continue;
     }
@@ -193,17 +212,25 @@ function validatePhysical(document: AchDocument, context: ValidationContext): vo
     }
 
     if (context.profile.validateAsciiCharacters) {
-      const invalidOffset = [...raw].findIndex(character => {
-        const codePoint = character.codePointAt(0) ?? 0;
-        return codePoint < 0x20 || codePoint > 0x7e;
-      });
+      let invalidOffset = -1;
+      let invalidWidth = 1;
+      for (let offset = 0; offset < raw.length;) {
+        const codePoint = raw.codePointAt(offset) ?? 0;
+        const width = codePoint > 0xffff ? 2 : 1;
+        if (codePoint < 0x20 || codePoint > 0x7e) {
+          invalidOffset = offset;
+          invalidWidth = width;
+          break;
+        }
+        offset += width;
+      }
       if (invalidOffset >= 0) {
-        context.add(record, invalidOffset, invalidOffset + 1, 'ACH-PHYSICAL-CHARACTER-SET', 'physical', 'ACH records must use printable ASCII characters');
+        context.add(record, invalidOffset, invalidOffset + invalidWidth, 'ACH-PHYSICAL-CHARACTER-SET', 'physical', 'ACH records must use printable ASCII characters');
       }
     }
   }
 
-  const physicalRecords = document.lines.filter(line => line.length > 0).length;
+  const physicalRecords = physicalRecordCount(document);
   const nonPaddingRecords = document.records.filter(record => record.kind !== 'padding').length;
   const requiredPadding = (10 - (nonPaddingRecords % 10)) % 10;
   if (context.profile.requireBlocking) {
@@ -316,7 +343,7 @@ function validateStructure(document: AchDocument, context: ValidationContext): v
     }
   }
 
-  if (document.fileHeaders.length === 0 && document.records.length > 0) {
+  if (document.fileHeaders.length === 0) {
     context.add(document.records[0], 0, 1, 'ACH-STRUCTURE-MISSING-FILE-HEADER', 'structural', 'ACH file is missing its File Header record');
   }
   if (document.fileHeaders.length > 1) {
@@ -324,7 +351,7 @@ function validateStructure(document: AchDocument, context: ValidationContext): v
       context.add(duplicate, 0, 1, 'ACH-STRUCTURE-DUPLICATE-FILE-HEADER', 'structural', 'ACH file contains more than one File Header record');
     }
   }
-  if (document.fileControls.length === 0 && document.records.length > 0) {
+  if (document.fileControls.length === 0) {
     const target = document.paddingRecords[0] ?? document.records.at(-1);
     context.add(target, 0, Math.min(target?.raw.length ?? 0, 1), 'ACH-STRUCTURE-MISSING-FILE-CONTROL', 'structural', 'ACH file is missing its File Control record');
   }
@@ -337,6 +364,12 @@ function validateStructure(document: AchDocument, context: ValidationContext): v
     if (!batch.control) {
       context.add(batch.header, 0, 1, 'ACH-STRUCTURE-MISSING-BATCH-CONTROL', 'structural', 'Batch is missing its Batch Control record');
     }
+    if (batch.entries.length === 0) {
+      context.add(batch.header, 0, 1, 'ACH-STRUCTURE-EMPTY-BATCH', 'structural', 'An ACH batch must contain at least one Entry Detail record');
+    }
+  }
+  if (document.batches.length === 0) {
+    context.add(document.fileHeaders[0] ?? document.fileControls[0] ?? document.records[0], 0, 1, 'ACH-STRUCTURE-NO-BATCHES', 'structural', 'An ACH file must contain at least one batch');
   }
 }
 
@@ -357,8 +390,15 @@ function expectValue(
 
 function validateFileHeader(record: AchRecord, context: ValidationContext): void {
   expectValue(record, 1, 3, '01', 'ACH-FIELD-PRIORITY-CODE', 'Priority Code must be 01', context);
-  if (record.raw.substring(3, 13).trim().length === 0) {
-    context.add(record, 3, 13, 'ACH-FIELD-IMMEDIATE-DESTINATION-REQUIRED', 'field', 'Immediate Destination is required');
+  const destination = record.raw.substring(3, 13);
+  if (!/^ \d{9}$/.test(destination)) {
+    context.add(record, 3, 13, 'ACH-FIELD-IMMEDIATE-DESTINATION', 'field', 'Immediate Destination must contain a leading blank followed by a 9-digit routing number', { expected: 'blank + 9 digits', actual: destination });
+  } else {
+    const routing = destination.substring(1);
+    const expected = String(calculateCheckDigit(routing.substring(0, 8)));
+    if (routing.charAt(8) !== expected) {
+      context.add(record, 12, 13, 'ACH-FIELD-IMMEDIATE-DESTINATION-CHECK-DIGIT', 'field', `Immediate Destination routing check digit should be ${expected}`, { expected, actual: routing.charAt(8) });
+    }
   }
   if (record.raw.substring(13, 23).trim().length === 0) {
     context.add(record, 13, 23, 'ACH-FIELD-IMMEDIATE-ORIGIN-REQUIRED', 'field', 'Immediate Origin is required');
@@ -391,23 +431,65 @@ function validateBatchHeader(batch: AchBatch, context: ValidationContext): void 
   } else if (batch.secCode !== 'ADV' && serviceClass === '280') {
     context.add(record, 1, 4, 'ACH-ADV-SERVICE-CLASS', 'sec', 'Service Class Code 280 is valid only for ADV batches', { expected: '200, 220, or 225', actual: serviceClass });
   }
+  if (batch.secCode !== 'IAT' && record.raw.substring(4, 20).trim().length === 0) {
+    context.add(record, 4, 20, 'ACH-FIELD-COMPANY-NAME-REQUIRED', 'field', 'Company Name is required');
+  }
   if (record.raw.substring(40, 50).trim().length === 0) {
     context.add(record, 40, 50, 'ACH-FIELD-COMPANY-ID-REQUIRED', 'field', 'Company Identification is required');
   }
+  if (record.raw.substring(53, 63).trim().length === 0) {
+    context.add(record, 53, 63, 'ACH-FIELD-COMPANY-ENTRY-DESCRIPTION-REQUIRED', 'field', 'Company Entry Description is required');
+  }
   if (!knownSecCodes.has(batch.secCode)) {
-    context.add(record, 50, 53, 'ACH-SEC-UNKNOWN-CODE', 'sec', `Unknown or unsupported SEC code '${batch.secCode}'`, { severity: 1, actual: batch.secCode });
+    context.add(record, 50, 53, 'ACH-SEC-UNKNOWN-CODE', 'sec', `Unknown or unsupported SEC code '${batch.secCode}'`, { actual: batch.secCode });
   }
   if (batch.secCode === 'IAT') {
     const iatIndicator = record.raw.substring(4, 20);
-    if (!['', 'IAT', 'IATCOR'].includes(iatIndicator.trim())) {
+    if (!['', 'IATCOR'].includes(iatIndicator.trim())) {
       context.add(record, 4, 20, 'ACH-IAT-INDICATOR', 'sec', 'IAT Indicator must be blank for a forward IAT entry or contain IATCOR for an IAT Notification of Change', { expected: 'blank or IATCOR', actual: iatIndicator });
+    }
+    const exchangeIndicator = record.raw.substring(20, 22);
+    if (!['FV', 'VF', 'FF'].includes(exchangeIndicator)) {
+      context.add(record, 20, 22, 'ACH-IAT-FOREIGN-EXCHANGE-INDICATOR', 'field', 'IAT Foreign Exchange Indicator must be FV, VF, or FF', { expected: 'FV, VF, or FF', actual: exchangeIndicator });
+    }
+    const referenceIndicator = record.raw.substring(22, 23);
+    const reference = record.raw.substring(23, 38);
+    if (!['1', '2', '3'].includes(referenceIndicator)) {
+      context.add(record, 22, 23, 'ACH-IAT-FOREIGN-EXCHANGE-REFERENCE-INDICATOR', 'field', 'IAT Foreign Exchange Reference Indicator must be 1, 2, or 3', { expected: '1, 2, or 3', actual: referenceIndicator });
+    } else if (referenceIndicator === '1' && !/^\d{15}$/.test(reference)) {
+      context.add(record, 23, 38, 'ACH-IAT-FOREIGN-EXCHANGE-REFERENCE', 'field', 'An exchange-rate reference must contain 15 digits', { expected: '15 digits', actual: reference });
+    } else if (referenceIndicator === '2' && reference.trim().length === 0) {
+      context.add(record, 23, 38, 'ACH-IAT-FOREIGN-EXCHANGE-REFERENCE', 'field', 'A foreign-exchange reference number is required when the indicator is 2');
+    } else if (referenceIndicator === '3' && reference.trim().length > 0) {
+      context.add(record, 23, 38, 'ACH-IAT-FOREIGN-EXCHANGE-REFERENCE', 'field', 'Foreign Exchange Reference must be blank when the indicator is 3', { expected: 'blank', actual: reference });
+    }
+    const destinationCountry = record.raw.substring(38, 40);
+    if (!isoCountryCodes.has(destinationCountry)) {
+      context.add(record, 38, 40, 'ACH-IAT-DESTINATION-COUNTRY', 'field', 'IAT ISO Destination Country Code is not a current ISO 3166-1 alpha-2 code', { expected: 'ISO alpha-2 country code', actual: destinationCountry });
+    }
+    for (const [start, end, label] of [[63, 66, 'Originating'], [66, 69, 'Destination']] as const) {
+      const currency = record.raw.substring(start, end);
+      if (!isoCurrencyCodes.has(currency)) {
+        context.add(record, start, end, `ACH-IAT-${label.toUpperCase()}-CURRENCY`, 'field', `IAT ISO ${label} Currency Code is not a current ISO 4217 code`, { expected: 'ISO 4217 code', actual: currency });
+      }
     }
   }
   const effectiveDate = record.raw.substring(69, 75);
   if (!isValidAchDate(effectiveDate)) {
     context.add(record, 69, 75, 'ACH-FIELD-EFFECTIVE-DATE', 'field', 'Effective Entry Date is not a real YYMMDD calendar date', { expected: 'valid YYMMDD', actual: effectiveDate });
   }
-  expectValue(record, 78, 79, '1', 'ACH-FIELD-ORIGINATOR-STATUS', 'Originator Status Code must be 1', context);
+  const settlementDate = record.raw.substring(75, 78);
+  if (settlementDate.trim().length > 0 && (!/^\d{3}$/.test(settlementDate) || Number(settlementDate) < 1 || Number(settlementDate) > 366)) {
+    context.add(record, 75, 78, 'ACH-FIELD-SETTLEMENT-DATE', 'field', 'Settlement Date must be blank or a valid 001-366 Julian day inserted by an ACH Operator', { expected: 'blank or 001-366', actual: settlementDate });
+  }
+  const originatorStatus = record.raw.substring(78, 79);
+  if (!['0', '1', '2'].includes(originatorStatus)) {
+    context.add(record, 78, 79, 'ACH-FIELD-ORIGINATOR-STATUS', 'field', 'Originator Status Code must be 0 (ACH Operator ADV), 1 (DFI), or 2 (Federal Government)', { expected: '0, 1, or 2', actual: originatorStatus });
+  } else if (batch.secCode === 'ADV' && originatorStatus !== '0') {
+    context.add(record, 78, 79, 'ACH-ADV-ORIGINATOR-STATUS', 'sec', 'ACH Operator ADV batches require Originator Status Code 0', { expected: '0', actual: originatorStatus });
+  } else if (batch.secCode !== 'ADV' && originatorStatus === '0') {
+    context.add(record, 78, 79, 'ACH-SEC-ORIGINATOR-STATUS', 'sec', 'Originator Status Code 0 is reserved for ACH Operator ADV batches', { expected: '1 or 2', actual: originatorStatus });
+  }
   const odfi = record.raw.substring(79, 87);
   if (!isDigits(odfi)) {
     context.add(record, 79, 87, 'ACH-FIELD-ODFI-ID', 'field', 'Originating DFI Identification must contain 8 digits');
@@ -533,11 +615,31 @@ function validateSecEntryFields(
   rule: TransactionCodeRule | undefined,
   context: ValidationContext,
 ): void {
-  if (!rule || rule.kind === 'return') { return; }
+  if (!rule) { return; }
 
   const record = entry.detail;
   const secCode = batch.secCode;
-  const standardAccountSecs = ['ACK', 'ARC', 'ATX', 'BOC', 'CCD', 'CIE', 'CTX', 'DNE', 'ENR', 'MTE', 'POP', 'POS', 'PPD', 'RCK', 'SHR', 'TEL', 'TRX', 'WEB'];
+  if (secCode === 'IAT') {
+    if (record.raw.substring(16, 29).trim().length > 0) {
+      context.add(record, 16, 29, 'ACH-IAT-ENTRY-RESERVED', 'field', 'IAT Entry Detail reserved field must be blank', { expected: 'blank', actual: record.raw.substring(16, 29) });
+    }
+    if (record.raw.substring(39, 74).trim().length === 0) {
+      context.add(record, 39, 74, 'ACH-IAT-ACCOUNT-REQUIRED', 'sec', 'Foreign Receiver Account Number is required for IAT entries');
+    }
+    for (const [start, label] of [[74, 'Gateway Operator'], [75, 'Secondary']] as const) {
+      const indicator = record.raw.substring(start, start + 1);
+      if (![' ', '0', '1'].includes(indicator)) {
+        context.add(record, start, start + 1, 'ACH-IAT-OFAC-INDICATOR', 'field', `${label} OFAC Screening Indicator must be blank, 0, or 1`, { expected: 'blank, 0, or 1', actual: indicator });
+      }
+    }
+    if (record.raw.substring(76, 78).trim().length > 0) {
+      context.add(record, 76, 78, 'ACH-IAT-ENTRY-RESERVED', 'field', 'IAT Entry Detail reserved field must be blank', { expected: 'blank', actual: record.raw.substring(76, 78) });
+    }
+  }
+
+  if (rule.kind === 'return') { return; }
+
+  const standardAccountSecs = ['ACK', 'ARC', 'ATX', 'BOC', 'CCD', 'CIE', 'CTX', 'DNE', 'ENR', 'MTE', 'POP', 'POS', 'PPD', 'RCK', 'SHR', 'TEL', 'TRC', 'TRX', 'WEB', 'XCK'];
   if (standardAccountSecs.includes(secCode) && record.raw.substring(12, 29).trim().length === 0) {
     context.add(record, 12, 29, 'ACH-SEC-ACCOUNT-REQUIRED', 'sec', `DFI Account Number is required for ${secCode} entries`);
   }
@@ -549,7 +651,7 @@ function validateSecEntryFields(
     context.add(record, receiverRange[0], receiverRange[1], 'ACH-SEC-RECEIVER-NAME-REQUIRED', 'sec', `${receiverLabel} is required for ${secCode} entries`);
   }
 
-  if (['ARC', 'BOC', 'RCK'].includes(secCode) && record.raw.substring(39, 54).trim().length === 0) {
+  if (['ARC', 'BOC', 'RCK', 'TRC', 'XCK'].includes(secCode) && record.raw.substring(39, 54).trim().length === 0) {
     context.add(record, 39, 54, 'ACH-SEC-CHECK-SERIAL-REQUIRED', 'sec', `Check Serial Number is required for ${secCode} entries`);
   }
 
@@ -685,6 +787,12 @@ function validateSecEntryFields(
     && record.raw.substring(39, 54).trim().length === 0) {
     context.add(record, 39, 54, 'ACH-WEB-CREDIT-ORIGINATOR-NAME', 'sec', 'A WEB credit requires the consumer Originator name in the Individual Identification Number field');
   }
+  if (secCode === 'WEB') {
+    const paymentType = record.raw.substring(76, 78).trim();
+    if (!['R', 'S', 'ST'].includes(paymentType)) {
+      context.add(record, 76, 78, 'ACH-WEB-PAYMENT-TYPE', 'sec', 'WEB Payment Type Code must be R (recurring), S (single), or ST (standing authorization)', { expected: 'R, S, or ST', actual: record.raw.substring(76, 78) });
+    }
+  }
 
   if (secCode === 'CTX') {
     const declaredRaw = record.raw.substring(54, 58);
@@ -742,8 +850,11 @@ function validateEntry(entry: AchEntry, batch: AchBatch, context: ValidationCont
   } else if (context.profile.validateSecCompatibility) {
     const incompatibility = transactionCodeCompatibility(rule, batch.secCode);
     if (incompatibility) {
-      context.add(record, 1, 3, 'ACH-SEC-TRANSACTION-CODE', 'sec', incompatibility, { severity: 1, actual: transactionCode });
+      context.add(record, 1, 3, 'ACH-SEC-TRANSACTION-CODE', 'sec', incompatibility, { actual: transactionCode });
     }
+  }
+  if (transactionCode === '55' && !batch.isReversal) {
+    context.add(record, 1, 3, 'ACH-SEC-LOAN-DEBIT-REVERSAL-ONLY', 'sec', 'Transaction Code 55 is permitted only in a REVERSAL batch', { expected: 'REVERSAL batch', actual: batch.entryDescription || '<blank>' });
   }
 
   const [amountStart, amountEnd] = entryAmountRangeForSec(batch.secCode);
@@ -811,8 +922,10 @@ function validateSpecialAddenda(addenda: AchRecord, detail: AchRecord, context: 
   const trace = addenda.raw.substring(79, 94);
 
   if (addendaType === '98') {
-    if (!/^C\d{2}$/.test(code)) {
-      context.add(addenda, 3, 6, 'ACH-NOC-CHANGE-CODE', 'field', 'Notification of Change code must use C followed by 2 digits', { expected: 'C00-C99', actual: code });
+    if (!validNotificationOfChangeCodes.has(code)) {
+      context.add(addenda, 3, 6, 'ACH-NOC-CHANGE-CODE', 'field', 'Notification of Change code is not valid in the pinned ruleset', { expected: [...validNotificationOfChangeCodes].join(', '), actual: code });
+    } else if (['C08', 'C14'].includes(code) && addenda.secCode !== 'IAT') {
+      context.add(addenda, 3, 6, 'ACH-NOC-CHANGE-CODE-SEC', 'sec', `${code} is valid only for IAT Notifications of Change`, { expected: 'IAT', actual: addenda.secCode });
     }
     const correctedDataEnd = addenda.secCode === 'IAT' ? 70 : 64;
     const firstReserved = addenda.raw.substring(21, 27);
@@ -823,12 +936,28 @@ function validateSpecialAddenda(addenda: AchRecord, detail: AchRecord, context: 
     if (secondReserved.trim().length > 0) {
       context.add(addenda, correctedDataEnd, 79, 'ACH-NOC-RESERVED', 'field', 'Notification of Change reserved field must be blank', { expected: 'blank', actual: secondReserved });
     }
-    if (addenda.raw.substring(35, correctedDataEnd).trim().length === 0) {
+    const correctedData = addenda.raw.substring(35, correctedDataEnd);
+    if (correctedData.trim().length === 0 && code !== 'C13') {
       context.add(addenda, 35, correctedDataEnd, 'ACH-NOC-CORRECTED-DATA-REQUIRED', 'field', 'Notification of Change Corrected Data must not be blank');
     }
+    if (validNotificationOfChangeCodes.has(code)) {
+      const invalid = validateNocCorrectedData(code, correctedData, addenda.secCode === 'IAT');
+      if (invalid) {
+        context.add(addenda, 35, correctedDataEnd, 'ACH-NOC-CORRECTED-DATA-FORMAT', 'field', invalid, { actual: correctedData });
+      }
+    }
   } else {
-    if (!/^R\d{2}$/.test(code)) {
-      context.add(addenda, 3, 6, 'ACH-RETURN-REASON-CODE', 'field', 'Return Reason Code must use R followed by 2 digits', { expected: 'R00-R99', actual: code });
+    if (!validReturnReasonCodes.has(code)) {
+      const futureDate = futureReturnReasonCodes.get(code);
+      const message = futureDate
+        ? `Return Reason Code ${code} is not effective until ${futureDate}`
+        : 'Return Reason Code is not valid in the pinned ruleset';
+      context.add(addenda, 3, 6, 'ACH-RETURN-REASON-CODE', 'field', message, { expected: 'current Return Reason Code', actual: code });
+    } else {
+      const incompatibility = returnReasonSecCompatibility(code, addenda.secCode);
+      if (incompatibility) {
+        context.add(addenda, 3, 6, 'ACH-RETURN-REASON-CODE-SEC', 'sec', incompatibility, { actual: addenda.secCode });
+      }
     }
     const dateOfDeath = addenda.raw.substring(21, 27);
     if (['R14', 'R15'].includes(code)) {
@@ -840,6 +969,12 @@ function validateSpecialAddenda(addenda: AchRecord, detail: AchRecord, context: 
     }
     if (addenda.secCode === 'IAT' && !/^\d{10}$/.test(addenda.raw.substring(35, 45))) {
       context.add(addenda, 35, 45, 'ACH-IAT-RETURN-ORIGINAL-AMOUNT', 'field', 'IAT Return Original Forward Entry Payment Amount must contain 10 digits');
+    }
+    if (code === 'R69') {
+      const fieldErrors = addenda.raw.substring(addenda.secCode === 'IAT' ? 45 : 35, 79).trim();
+      if (!/^(?:0[1-7])+$/.test(fieldErrors)) {
+        context.add(addenda, addenda.secCode === 'IAT' ? 45 : 35, 79, 'ACH-RETURN-R69-FIELD-ERRORS', 'field', 'R69 Addenda Information must contain one or more two-digit Field Error codes from 01 through 07', { expected: '01-07 code(s)', actual: fieldErrors });
+      }
     }
   }
 
@@ -861,6 +996,80 @@ function validateSpecialAddenda(addenda: AchRecord, detail: AchRecord, context: 
       });
     }
   }
+}
+
+function validateNocCorrectedData(code: string, raw: string, iat: boolean): string | undefined {
+  const blankAfter = (end: number): boolean => raw.substring(end).trim().length === 0;
+  const required = (start: number, end: number): boolean => raw.substring(start, end).trim().length > 0;
+  const routingError = (routing: string): string | undefined => {
+    if (!/^\d{9}$/.test(routing)) { return 'Corrected routing number must contain 9 digits'; }
+    const expected = String(calculateCheckDigit(routing.substring(0, 8)));
+    return routing.charAt(8) === expected ? undefined : `Corrected routing number check digit should be ${expected}`;
+  };
+  const transactionError = (transaction: string): string | undefined => {
+    const rule = transactionCodes.get(transaction);
+    return rule && !['return', 'settlement'].includes(rule.kind)
+      ? undefined
+      : 'Corrected Transaction Code must be a valid forward-entry transaction code';
+  };
+
+  if (code === 'C01') {
+    const accountWidth = iat ? 35 : 17;
+    return required(0, accountWidth) && blankAfter(accountWidth)
+      ? undefined
+      : `C01 Corrected Data must contain the corrected account number in the first ${accountWidth} positions`;
+  }
+  if (code === 'C02') {
+    return routingError(raw.substring(0, 9))
+      ?? (blankAfter(9) ? undefined : 'C02 positions after the corrected Routing Number must be blank');
+  }
+  if (code === 'C03') {
+    return routingError(raw.substring(0, 9))
+      ?? (raw.substring(9, 12) === '   ' ? undefined : 'C03 positions 10 through 12 must be blank')
+      ?? (required(12, 29) ? undefined : 'C03 Corrected Data must include the corrected account number in positions 13 through 29');
+  }
+  if (code === 'C04') {
+    return required(0, 22) && blankAfter(22)
+      ? undefined
+      : 'C04 Corrected Data must contain the corrected name in the first 22 positions';
+  }
+  if (code === 'C05') {
+    return transactionError(raw.substring(0, 2))
+      ?? (blankAfter(2) ? undefined : 'C05 positions after the corrected Transaction Code must be blank');
+  }
+  if (code === 'C06') {
+    return !required(0, 17)
+      ? 'C06 Corrected Data must include the corrected account number in positions 1 through 17'
+      : raw.substring(17, 20) !== '   '
+        ? 'C06 positions 18 through 20 must be blank'
+        : transactionError(raw.substring(20, 22))
+          ?? (blankAfter(22) ? undefined : 'C06 positions after the corrected Transaction Code must be blank');
+  }
+  if (code === 'C07') {
+    return routingError(raw.substring(0, 9))
+      ?? (required(9, 26) ? undefined : 'C07 Corrected Data must include the corrected account number in positions 10 through 26')
+      ?? transactionError(raw.substring(26, 28))
+      ?? (blankAfter(28) ? undefined : 'C07 position 29 must be blank');
+  }
+  if (code === 'C08') {
+    return iat && required(0, 34) && blankAfter(34)
+      ? undefined
+      : 'C08 is IAT-only and must contain the corrected Receiving DFI Identification in the first 34 positions';
+  }
+  if (code === 'C09') {
+    return required(0, 22) && blankAfter(22)
+      ? undefined
+      : 'C09 Corrected Data must contain the corrected identification number in the first 22 positions';
+  }
+  if (code === 'C13') {
+    return raw.trim().length === 0 ? undefined : 'C13 Corrected Data must be blank because the change identifies an Addenda Format Error';
+  }
+  if (code === 'C14') {
+    return iat && raw.substring(0, 3) === 'IAT' && blankAfter(3)
+      ? undefined
+      : 'C14 is IAT-only and must contain IAT in the first three Corrected Data positions';
+  }
+  return undefined;
 }
 
 function validateIatAddendaContent(entry: AchEntry, returnOrNoc: boolean, context: ValidationContext): void {
@@ -918,8 +1127,8 @@ function validateIatAddendaContent(entry: AchEntry, returnOrNoc: boolean, contex
     }
     if (type === '10') {
       const transactionType = addenda.raw.substring(3, 6);
-      if (!/^[A-Z0-9]{3}$/.test(transactionType)) {
-        context.add(addenda, 3, 6, 'ACH-IAT-TRANSACTION-TYPE', 'field', 'IAT Transaction Type Code must contain three uppercase letters or digits', { actual: transactionType });
+      if (!iatTransactionTypeCodes.has(transactionType)) {
+        context.add(addenda, 3, 6, 'ACH-IAT-TRANSACTION-TYPE', 'field', 'IAT Transaction Type Code is not a permitted reason-for-payment or secondary SEC code', { expected: [...iatTransactionTypeCodes].join(', '), actual: transactionType });
       }
       const foreignAmount = addenda.raw.substring(6, 24);
       if (!/^\d{18}$/.test(foreignAmount)) {
@@ -932,8 +1141,21 @@ function validateIatAddendaContent(entry: AchEntry, returnOrNoc: boolean, contex
         context.add(addenda, 38, 40, 'ACH-IAT-DFI-QUALIFIER', 'field', 'IAT financial-institution identification qualifier must be 01, 02, or 03', { expected: '01, 02, or 03', actual: qualifier });
       }
       const country = addenda.raw.substring(74, 77);
-      if (!/^[A-Z]{2} $/.test(country)) {
-        context.add(addenda, 74, 77, 'ACH-IAT-BRANCH-COUNTRY', 'field', 'IAT branch country code must contain two uppercase ISO characters followed by a space', { expected: 'AA + space', actual: country });
+      if (!isoCountryCodes.has(country.substring(0, 2)) || country.charAt(2) !== ' ') {
+        context.add(addenda, 74, 77, 'ACH-IAT-BRANCH-COUNTRY', 'field', 'IAT branch country code must contain a current ISO 3166-1 alpha-2 code followed by a space', { expected: 'ISO alpha-2 + space', actual: country });
+      }
+      const identifier = addenda.raw.substring(40, 74).trim();
+      if (qualifier === '02' && !/^[A-Z0-9]{8}(?:[A-Z0-9]{3})?$/.test(identifier)) {
+        context.add(addenda, 40, 74, 'ACH-IAT-DFI-IDENTIFICATION', 'field', 'A SWIFT BIC identifier must contain 8 or 11 uppercase letters/digits', { expected: '8 or 11 uppercase letters/digits', actual: identifier });
+      } else if (qualifier === '03' && !/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(identifier)) {
+        context.add(addenda, 40, 74, 'ACH-IAT-DFI-IDENTIFICATION', 'field', 'An IBAN identifier must contain 15-34 uppercase alphanumeric characters with a country/check prefix', { expected: 'ISO 13616 IBAN shape', actual: identifier });
+      }
+    }
+    if (['12', '16'].includes(type)) {
+      const countryAndPostal = addenda.raw.substring(38, 73).trim();
+      const country = countryAndPostal.substring(0, 2);
+      if (!isoCountryCodes.has(country) || !/^[A-Z]{2}\*/.test(countryAndPostal)) {
+        context.add(addenda, 38, 73, 'ACH-IAT-ADDRESS-COUNTRY', 'field', 'IAT country/postal data must begin with a current two-letter ISO country code followed by the data-element separator', { expected: 'AA*postal data', actual: countryAndPostal });
       }
     }
     if (['17', '18'].includes(type)) {
@@ -996,7 +1218,7 @@ function validateEntryAddenda(entry: AchEntry, batch: AchBatch, rule: Transactio
 
   const maximum = maximumAddendaForSec(batch.secCode);
   const returnOrNoc = entry.addenda.some(addenda => ['98', '99'].includes(addenda.raw.substring(1, 3)));
-  if (maximum !== undefined && actualCount > maximum && !returnOrNoc) {
+  if (maximum !== undefined && actualCount > maximum) {
     context.add(detail, 78, 79, 'ACH-SEC-ADDENDA-MAXIMUM', 'sec', `${batch.secCode} permits at most ${maximum} addenda record(s) per entry`, {
       expected: `0-${maximum}`,
       actual: String(actualCount),
@@ -1017,7 +1239,7 @@ function validateEntryAddenda(entry: AchEntry, batch: AchBatch, rule: Transactio
     if (detail.raw.substring(29, 39) !== '0000000000') {
       context.add(detail, 29, 39, 'ACH-NOC-AMOUNT-ZERO', 'sec', 'Notification of Change entries must have a zero amount', { expected: '0000000000', actual: detail.raw.substring(29, 39) });
     }
-  } else if (rule?.kind === 'return' && (returnAddenda.length !== 1 || (batch.secCode !== 'IAT' && actualCount !== 1))) {
+  } else if (rule?.kind === 'return' && (returnAddenda.length !== 1 || actualCount !== 1)) {
     context.add(detail, 78, 79, 'ACH-RETURN-ADDENDA-REQUIRED', 'sec', 'A return entry requires exactly one Return addenda record (type 99)', {
       expected: 'one type 99 addenda',
       actual: String(returnAddenda.length),
@@ -1257,13 +1479,17 @@ function validateBatchControl(batch: AchBatch, totals: BatchTotals, context: Val
       context.add(control, creditRange[0], creditRange[1], 'ACH-RELATION-BATCH-CREDIT', 'relational', 'Batch credit total does not match the calculated total', { expected: expectedCredit, actual: actualCredit });
     }
 
-    const serviceClass = batch.header.raw.substring(1, 4);
-    if (serviceClass === '220' && totals.debit !== 0n) {
-      context.add(batch.header, 1, 4, 'ACH-SEC-SERVICE-CLASS-DIRECTION', 'sec', 'Credits-only Service Class 220 contains debit entries', { expected: 'credit entries only', actual: `${totals.debit} debit cents` });
-    }
-    if (serviceClass === '225' && totals.credit !== 0n) {
-      context.add(batch.header, 1, 4, 'ACH-SEC-SERVICE-CLASS-DIRECTION', 'sec', 'Debits-only Service Class 225 contains credit entries', { expected: 'debit entries only', actual: `${totals.credit} credit cents` });
-    }
+  }
+
+  const serviceClass = batch.header.raw.substring(1, 4);
+  const directions = batch.entries
+    .map(entry => transactionCodes.get(entry.detail.raw.substring(1, 3))?.direction)
+    .filter((direction): direction is 'credit' | 'debit' => direction !== undefined);
+  if (serviceClass === '220' && directions.includes('debit')) {
+    context.add(batch.header, 1, 4, 'ACH-SEC-SERVICE-CLASS-DIRECTION', 'sec', 'Credits-only Service Class 220 contains a debit Entry, including a zero-dollar prenote or return', { expected: 'credit entries only', actual: 'debit transaction code present' });
+  }
+  if (serviceClass === '225' && directions.includes('credit')) {
+    context.add(batch.header, 1, 4, 'ACH-SEC-SERVICE-CLASS-DIRECTION', 'sec', 'Debits-only Service Class 225 contains a credit Entry, including a zero-dollar prenote or return', { expected: 'debit entries only', actual: 'credit transaction code present' });
   }
 }
 
@@ -1284,7 +1510,7 @@ function validateFileControl(document: AchDocument, batchTotals: BatchTotals[], 
   const reservedStart = adv ? 71 : 55;
   const amountWidth = adv ? 20 : 12;
   const expectedBatchCount = String(document.batches.length).padStart(6, '0');
-  const physicalRecords = document.lines.filter(line => line.length > 0).length;
+  const physicalRecords = physicalRecordCount(document);
   const expectedBlockCount = String(Math.ceil(physicalRecords / 10)).padStart(6, '0');
   const totalCount = batchTotals.reduce((sum, totals) => sum + totals.count, 0);
   const expectedEntryCount = String(totalCount).padStart(8, '0');
@@ -1348,6 +1574,59 @@ function validateFileControl(document: AchDocument, batchTotals: BatchTotals[], 
   }
 }
 
+function validateSequencesAndComposition(document: AchDocument, context: ValidationContext): void {
+  let previousBatchNumber: bigint | undefined;
+  const traceLines = new Map<string, AchRecord>();
+
+  for (const batch of document.batches) {
+    const batchNumberRaw = batch.header.raw.substring(87, 94);
+    if (/^\d{7}$/.test(batchNumberRaw)) {
+      const batchNumber = BigInt(batchNumberRaw);
+      if (previousBatchNumber !== undefined && batchNumber <= previousBatchNumber) {
+        context.add(batch.header, 87, 94, 'ACH-RELATION-BATCH-NUMBER-ORDER', 'relational', 'Batch Numbers must be strictly ascending within the file', {
+          expected: `greater than ${previousBatchNumber.toString().padStart(7, '0')}`,
+          actual: batchNumberRaw,
+        });
+      }
+      previousBatchNumber = batchNumber;
+    }
+
+    let previousTrace: bigint | undefined;
+    let hasForward = false;
+    let hasReturnOrNoc = false;
+    for (const entry of batch.entries) {
+      const rule = transactionCodes.get(entry.detail.raw.substring(1, 3));
+      const specialAddenda = entry.addenda.some(addenda => ['98', '99'].includes(addenda.raw.substring(1, 3)));
+      if (rule?.kind === 'return' || specialAddenda) { hasReturnOrNoc = true; }
+      else { hasForward = true; }
+
+      if (batch.secCode === 'ADV') { continue; }
+      const trace = entry.detail.raw.substring(79, 94);
+      if (!/^\d{15}$/.test(trace)) { continue; }
+      const numericTrace = BigInt(trace);
+      if (previousTrace !== undefined && numericTrace <= previousTrace) {
+        context.add(entry.detail, 79, 94, 'ACH-RELATION-TRACE-ORDER', 'relational', 'Trace Numbers must be strictly ascending within a batch', {
+          expected: `greater than ${previousTrace.toString().padStart(15, '0')}`,
+          actual: trace,
+        });
+      }
+      previousTrace = numericTrace;
+      const duplicate = traceLines.get(trace);
+      if (duplicate) {
+        context.add(entry.detail, 79, 94, 'ACH-RELATION-TRACE-DUPLICATE', 'relational', 'Trace Numbers must be unique within a file', {
+          actual: trace,
+          related: [related(duplicate, 79, 94, 'First use of this Trace Number')],
+        });
+      } else {
+        traceLines.set(trace, entry.detail);
+      }
+    }
+    if (hasForward && hasReturnOrNoc) {
+      context.add(batch.header, 50, 53, 'ACH-STRUCTURE-MIXED-FORWARD-RETURN-BATCH', 'structural', 'Forward Entries and Return/Notification-of-Change Entries must not be mixed in one batch');
+    }
+  }
+}
+
 function validateNetPosition(document: AchDocument, batchTotals: BatchTotals[], context: ValidationContext): void {
   if (!context.profile.requireNetZero || !batchTotals.every(totals => totals.amountsValid)) { return; }
   const debit = batchTotals.reduce((sum, totals) => sum + totals.debit, 0n);
@@ -1392,6 +1671,7 @@ function validateFieldsAndRelationships(document: AchDocument, context: Validati
   validateFileControl(document, batchTotals, context);
   validateNetPosition(document, batchTotals, context);
   validateMicroEntries(document, context);
+  validateSequencesAndComposition(document, context);
 }
 
 export function validateAch(

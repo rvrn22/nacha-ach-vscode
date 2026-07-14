@@ -21,8 +21,10 @@ const secFixtureCoverage = {
   RCK: 'achSecEntryFields.test.ts',
   SHR: 'achTerminalEntries.test.ts',
   TEL: 'achSecEntryFields.test.ts',
+  TRC: 'achSecEntryFields.test.ts',
   TRX: 'achTrx.test.ts',
   WEB: 'achSecEntryFields.test.ts',
+  XCK: 'achSecEntryFields.test.ts',
 } as const;
 
 suite('ACH Supported SEC Fixture Matrix', () => {

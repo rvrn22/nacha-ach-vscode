@@ -26,7 +26,7 @@ function largeValidFile(entryCount: number): string {
     [33, 'A'], [34, '094'], [37, '10'], [39, '1'],
   ]);
   const batch = makeRecord('5', [
-    [1, '220'], [4, 'PERFORMANCE'], [40, '1234567890'], [50, 'PPD'], [69, '260713'],
+    [1, '220'], [4, 'PERFORMANCE'], [40, '1234567890'], [50, 'PPD'], [53, 'PAYMENT'], [69, '260713'],
     [78, '1'], [79, '06100010'], [87, '0000001'],
   ]);
   const entries = Array.from({ length: entryCount }, (_, index) => makeRecord('6', [

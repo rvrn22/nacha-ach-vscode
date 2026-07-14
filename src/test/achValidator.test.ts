@@ -90,8 +90,8 @@ function buildStandardFile(options: {
 function buildIatFile(addendaTypes: string[] = ['10', '11', '12', '13', '14', '15', '16'], declaredCount = addendaTypes.length): string {
   const trace = '061000100000001';
   const batchHeader = makeRecord('5', [
-    [1, '200'], [4, 'IAT             '], [40, '1234567890'], [50, 'IAT'],
-    [53, 'PAYMENT'], [69, '260713'], [78, '1'], [79, '06100010'], [87, '0000001'],
+    [1, '200'], [20, 'FF'], [22, '3'], [38, 'US'], [40, '1234567890'], [50, 'IAT'],
+    [53, 'PAYMENT'], [63, 'USD'], [66, 'USD'], [69, '260713'], [78, '1'], [79, '06100010'], [87, '0000001'],
   ]);
   const entry = makeRecord('6', [
     [1, '22'], [3, '06100010'], [11, '4'], [12, padNumber(declaredCount, 4)],

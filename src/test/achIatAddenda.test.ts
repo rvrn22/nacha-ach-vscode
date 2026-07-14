@@ -29,7 +29,7 @@ function addenda(type: string, typeSequence: number, entrySequence = '0000001'):
     '15': [[1, '15'], [3, 'RECEIVER-ID'], [18, '456 OAK AVENUE'], [87, entrySequence]],
     '16': [[1, '16'], [3, 'MEXICO CITY*CMX\\'], [38, 'MX*01000\\'], [87, entrySequence]],
     '17': [[1, '17'], [3, 'REMITTANCE INFORMATION'], [83, number(typeSequence, 4)], [87, entrySequence]],
-    '18': [[1, '18'], [3, 'CORRESPONDENT BANK'], [38, '02'], [40, 'CORRESPONDENT-BIC'], [74, 'GB '], [83, number(typeSequence, 4)], [87, entrySequence]],
+    '18': [[1, '18'], [3, 'CORRESPONDENT BANK'], [38, '02'], [40, 'BARCGB22XXX'], [74, 'GB '], [83, number(typeSequence, 4)], [87, entrySequence]],
   };
   return makeRecord('7', fieldsByType[type]);
 }

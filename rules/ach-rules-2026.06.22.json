@@ -1,0 +1,73 @@
+{
+  "schema": "nacha-ach-ruleset/v1",
+  "id": "nacha-ach-deterministic-format-rules",
+  "rulesVersion": "2026.06.22.1",
+  "effectiveThrough": "2026-06-22",
+  "extensionVersion": "1.0.0",
+  "scope": {
+    "includes": "Deterministic validations derivable from ACH file bytes",
+    "complianceCertified": false,
+    "externalEvidenceRequired": [
+      "Receiver authorization and authorization date",
+      "Return, reversal, prenote, reinitiation, and settlement timing",
+      "Routing-directory membership and participant eligibility",
+      "OFAC and sanctions screening outcomes",
+      "Participant and trading-party agreements",
+      "Fraud-monitoring processes and procedures",
+      "Company Entry Description purpose classification",
+      "Application-specific addenda conventions and trading-partner schemas",
+      "Annual ACH Rules compliance audits and risk assessments"
+    ]
+  },
+  "publicSources": [
+    "https://achdevguide.nacha.org/ach-file-overview",
+    "https://achdevguide.nacha.org/index.php/ach-file-details",
+    "https://www.frbservices.org/resources/financial-services/ach/faq/iat.html",
+    "https://www.frbservices.org/forms/ach/iat-output-instructions.html",
+    "https://www.nacha.org/system/files/2023-08/NACHA_ISO20022_Guide_camt.053_returns%2008-09-23.pdf",
+    "https://www.nacha.org/rules/risk-management-topics-company-entry-descriptions",
+    "https://www.nacha.org/rules/risk-management-topics-fraud-monitoring-phase-2",
+    "https://www.nacha.org/rules/new-return-reason-code-sanctions-compliance-obligations",
+    "https://www.fiscal.treasury.gov/data/FSv49/TRXv10/Transmission/Batch/BusinessTransaction/FinancialTransaction/CheckDetail/ACH_Info/index.html"
+  ],
+  "tables": {
+    "standardEntryClassCodes": [
+      "ACK", "ADV", "ARC", "ATX", "BOC", "CCD", "CIE", "COR", "CTX", "DNE", "ENR",
+      "IAT", "MTE", "POP", "POS", "PPD", "RCK", "SHR", "TEL", "TRC", "TRX", "WEB", "XCK"
+    ],
+    "originatorStatusCodes": ["0", "1", "2"],
+    "notificationOfChangeCodes": ["C01", "C02", "C03", "C04", "C05", "C06", "C07", "C08", "C09", "C13", "C14"],
+    "notificationOfChangeCorrectedData": {
+      "C01": "corrected account number in positions 1-17 (1-35 for IAT)",
+      "C02": "corrected 9-digit routing number in positions 1-9",
+      "C03": "routing positions 1-9, spaces 10-12, account positions 13-29",
+      "C04": "corrected name in positions 1-22",
+      "C05": "corrected transaction code in positions 1-2",
+      "C06": "account positions 1-17, spaces 18-20, transaction code positions 21-22",
+      "C07": "routing positions 1-9, account positions 10-26, transaction code positions 27-28",
+      "C08": "IAT-only receiving DFI identification in positions 1-34",
+      "C09": "corrected identification number in positions 1-22",
+      "C13": "blank; identifies an Addenda Format Error",
+      "C14": "IAT in positions 1-3"
+    },
+    "currentReturnReasonCodeRanges": ["R01-R47", "R50-R53", "R61-R77", "R80-R85"],
+    "returnReasonSecRestrictions": {
+      "R05": "CCD/CTX only",
+      "R10-R11": "all applicable SEC codes except CCD/CTX",
+      "R21": "CIE only",
+      "R29, R31": "CCD/CTX only",
+      "R33": "XCK only",
+      "R35": "all applicable SEC codes except CIE",
+      "R36": "not ARC/BOC/POP/RCK/TEL/WEB/XCK",
+      "R37, R39": "ARC/BOC/POP only",
+      "R38": "ARC/BOC only",
+      "R40-R47": "ENR only",
+      "R50-R53": "RCK only",
+      "R61-R77": "not IAT",
+      "R80-R85": "IAT only"
+    },
+    "futureReturnReasonCodes": {
+      "R90": "2028-03-17"
+    }
+  }
+}

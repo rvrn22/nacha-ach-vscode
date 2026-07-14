@@ -648,6 +648,7 @@ export function activate(context: vscode.ExtensionContext) {
 			explorerProvider.clear();
 			const ed = editor;
 			if (ed) {
+				diagnosticCollection.delete(ed.document.uri);
 				for (const t of Object.keys(recordDecorations)) {
 					ed.setDecorations(recordDecorations[t], []);
 				}
@@ -679,9 +680,12 @@ export function activate(context: vscode.ExtensionContext) {
 		const delay = Math.max(0, vscode.workspace.getConfiguration('nachaFileParser', doc.uri).get<number>('validationDebounceMs', 150));
 		documentUpdateTimers.set(key, setTimeout(() => {
 			documentUpdateTimers.delete(key);
-			if (vscode.window.activeTextEditor?.document.uri.toString() === key) {
-				updateForEditor();
+			if (doc.languageId !== 'ach') {
+				diagnosticCollection.delete(doc.uri);
+				return;
 			}
+			if (vscode.window.activeTextEditor?.document.uri.toString() === key) { updateForEditor(); }
+			else { runOnAch(doc); }
 		}, delay));
 	};
 
@@ -696,7 +700,8 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.workspace.onDidOpenTextDocument(doc => {
 			if (doc.languageId === 'ach') {
-				updateForEditor();
+				if (vscode.window.activeTextEditor?.document.uri.toString() === doc.uri.toString()) { updateForEditor(); }
+				else { runOnAch(doc); }
 			} else {
 				void offerAchLanguageMode(doc);
 			}
@@ -766,6 +771,7 @@ export function activate(context: vscode.ExtensionContext) {
 		}),
 		vscode.workspace.onDidCloseTextDocument(doc => {
 			analysisCache.delete(doc.uri.toString());
+			diagnosticCollection.delete(doc.uri);
 			const timer = documentUpdateTimers.get(doc.uri.toString());
 			if (timer) { clearTimeout(timer); }
 			documentUpdateTimers.delete(doc.uri.toString());

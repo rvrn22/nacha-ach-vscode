@@ -59,7 +59,7 @@ function buildSpecialFile(kind: SpecialEntry, amount = kind === 'noc' ? 0n : 123
   } else if (kind === 'noc') {
     records.push(makeRecord('7', [
       [1, '98'], [3, 'C01'], [6, '031300010000123'], [27, '03130001'],
-      [35, 'CORRECT-ACCOUNT-01'], [79, trace],
+      [35, 'CORRECT-ACCT-01'], [79, trace],
     ]));
   }
 

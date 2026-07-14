@@ -19,6 +19,21 @@ async function waitForDiagnostics(uri: vscode.Uri, code: string): Promise<vscode
   return vscode.languages.getDiagnostics(uri);
 }
 
+async function waitForDiagnosticRemoval(uri: vscode.Uri, code: string): Promise<vscode.Diagnostic[]> {
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    const diagnostics = vscode.languages.getDiagnostics(uri);
+    if (!diagnostics.some(diagnostic => {
+      const diagnosticCode = typeof diagnostic.code === 'object' ? diagnostic.code.value : diagnostic.code;
+      return diagnosticCode === code;
+    })) {
+      return diagnostics;
+    }
+    await new Promise(resolve => setTimeout(resolve, 25));
+  }
+  return vscode.languages.getDiagnostics(uri);
+}
+
 suite('Extension Integration Test Suite', () => {
   test('Publishes diagnostics and serves hovers, symbols, and folding through VS Code', async function () {
     this.timeout(10_000);
@@ -89,5 +104,27 @@ suite('Extension Integration Test Suite', () => {
     ), undefined);
     assert.strictEqual(resolutions, 0);
     cancellation.dispose();
+  });
+
+  test('Refreshes diagnostics for an ACH document while another editor is active', async function () {
+    this.timeout(10_000);
+    const records = standardAchRecords();
+    records[2] = records[2].substring(0, 11) + '5' + records[2].substring(12);
+    const achDocument = await vscode.workspace.openTextDocument({ language: 'ach', content: records.join('\n') });
+    await vscode.window.showTextDocument(achDocument);
+    await waitForDiagnostics(achDocument.uri, 'ACH-FIELD-ROUTING-CHECK-DIGIT');
+
+    const otherDocument = await vscode.workspace.openTextDocument({ language: 'plaintext', content: 'background editor' });
+    await vscode.window.showTextDocument(otherDocument);
+    const edit = new vscode.WorkspaceEdit();
+    edit.replace(achDocument.uri, new vscode.Range(2, 11, 2, 12), '4');
+    assert.strictEqual(await vscode.workspace.applyEdit(edit), true);
+
+    const diagnostics = await waitForDiagnosticRemoval(achDocument.uri, 'ACH-FIELD-ROUTING-CHECK-DIGIT');
+    assert.strictEqual(diagnostics.some(diagnostic => {
+      const code = typeof diagnostic.code === 'object' ? diagnostic.code.value : diagnostic.code;
+      return code === 'ACH-FIELD-ROUTING-CHECK-DIGIT';
+    }), false);
+    await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
   });
 });

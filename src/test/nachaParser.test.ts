@@ -78,7 +78,7 @@ suite('Nacha Parser Validation Test Suite', () => {
 
         // IAT Batch Header
         // 5 + Service(3) + IAT Indicator(16) + FX Ind(2) + FX Ref Ind(1) + FX Ref(15) + Country(2) + ID(10) + SEC(3) + Desc(10) + Orig Curr(3) + Dest Curr(3) + Date(6) + Settle(3) + Status(1) + ODFI(8) + Batch(7)
-        const batchHeader = '5220' + 'IAT             ' + 'FF' + '3' + pad('', 15) + 'MX' + '1234567890' + 'IAT' + pad('PAYROLL', 10) + 'USD' + 'MXN' + '231026' + '   ' + '1' + '06100010' + '0000001';
+        const batchHeader = '5220' + pad('', 16) + 'FF' + '3' + pad('', 15) + 'MX' + '1234567890' + 'IAT' + pad('PAYROLL', 10) + 'USD' + 'MXN' + '231026' + '   ' + '1' + '06100010' + '0000001';
 
         // IAT Entry Detail
         // 6 + Tx(2) + RDFI(8) + CD(1) + Addenda(4) + Res(13) + Amount(10) + Account(35) + Screening(2) + Res(2) + Addenda Ind(1) + Trace(15)

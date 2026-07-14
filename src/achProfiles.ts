@@ -54,6 +54,10 @@ function baseProfile(id: string): AchValidationProfile {
     : nachaValidationProfile;
 }
 
+export function isBuiltInAchValidationProfile(id: string): boolean {
+  return ['nacha', nachaValidationProfile.id, 'unblocked', unblockedValidationProfile.id, 'balanced', balancedValidationProfile.id].includes(id);
+}
+
 export function resolveAchValidationProfile(
   requestedId: string,
   customProfiles: Record<string, AchCustomProfileDefinition> = {},

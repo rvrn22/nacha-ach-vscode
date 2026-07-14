@@ -100,7 +100,9 @@ export async function previewAndApplyAchEdits(
     void vscode.window.showInformationMessage(`No ${title.toLowerCase()} are needed.`);
     return false;
   }
-  const previewText = applyAchTextEdits(document.getText(), edits);
+  const sourceVersion = document.version;
+  const sourceText = document.getText();
+  const previewText = applyAchTextEdits(sourceText, edits);
   const previewUri = previewProvider.create(document.uri, previewText);
   await vscode.commands.executeCommand('vscode.diff', document.uri, previewUri, `${title} Preview`);
   const choice = await vscode.window.showInformationMessage(
@@ -109,6 +111,10 @@ export async function previewAndApplyAchEdits(
     'Cancel',
   );
   if (choice !== 'Apply Fixes') { return false; }
+  if (document.version !== sourceVersion || document.getText() !== sourceText) {
+    void vscode.window.showWarningMessage('The ACH document changed after the preview was created. No fixes were applied; generate a new preview from the current document.');
+    return false;
+  }
   const applied = await vscode.workspace.applyEdit(workspaceEditForAchEdits(document.uri, edits));
   if (applied) {
     await vscode.window.showTextDocument(document, { preview: false });

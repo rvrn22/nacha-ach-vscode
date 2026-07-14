@@ -64,7 +64,9 @@ export class AchDocumentSymbolProvider implements vscode.DocumentSymbolProvider 
         if (token?.isCancellationRequested) { return []; }
         const entry = batch.entries[entryIndex];
         const entryLast = entry.addenda.at(-1) ?? entry.detail;
-        const sequence = entry.detail.raw.substring(87, 94).trim() || String(entryIndex + 1);
+        const sequence = batch.secCode === 'ADV'
+          ? entry.detail.raw.substring(90, 94).trim() || String(entryIndex + 1)
+          : entry.detail.raw.substring(87, 94).trim() || String(entryIndex + 1);
         const transactionCode = entry.detail.raw.substring(1, 3);
         const transaction = transactionCodes.get(transactionCode)?.description ?? transactionCode;
         const entrySymbol = new vscode.DocumentSymbol(

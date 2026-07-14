@@ -178,7 +178,7 @@ Status: Completed
 - [x] Document Company Name, cross-file timing, verification completion, and fraud-monitoring boundaries.
 - [x] Add valid, invalid, split-batch, fix, explorer, and report regression coverage.
 
-## Post-roadmap — Complete IAT addenda support
+## Post-roadmap — Deterministic IAT addenda format support
 
 Status: Completed
 
@@ -197,7 +197,7 @@ Status: Completed
 - [x] Decode CCD/CTX corporate Receiver fields and WEB/TEL Payment Type Codes contextually.
 - [x] Validate required account, Receiver-name, and converted-check-serial fields for common domestic SEC layouts.
 - [x] Require the consumer Originator name for Person-to-Person WEB credits.
-- [x] Decode conventional Payment Type values without rejecting permitted Originator-defined codes.
+- [x] Require and decode the recognized WEB Payment Type values `R`, `S`, and `ST`.
 - [x] Mask converted-check serial numbers in decoded views.
 - [x] Add representative valid and targeted-invalid fixtures for ARC, BOC, RCK, CCD, CTX, PPD, TEL, and WEB.
 

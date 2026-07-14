@@ -4,6 +4,12 @@ A professional Visual Studio Code extension for developers and treasury professi
 
 ![Icon](icon.png)
 
+## Validation Scope
+
+The extension validates deterministic ACH file-format rules that can be established from the file bytes: fixed-width layouts, record order, field syntax, SEC/transaction compatibility, trace relationships, addenda structure, routing checksums, and calculated controls. JSON and SARIF reports identify this result as `formatValid` and always set `complianceCertified` to `false`.
+
+A structurally valid file is not, by itself, proof of Nacha Rules compliance. Authorization evidence, processing and return time limits, routing-directory eligibility, sanctions screening, participant agreements, fraud-monitoring procedures, purpose-specific Company Entry Descriptions, trading-partner addenda schemas, annual audits, and risk assessments require evidence outside the file. See [RULESET.md](RULESET.md) and the versioned machine-readable ruleset in `rules/`.
+
 ## Features
 
 ### 🔍 Deep Validation
@@ -17,7 +23,7 @@ A professional Visual Studio Code extension for developers and treasury professi
 - **Contextual Field Names**: Decodes ARC/BOC/RCK check serials, POP check/terminal fields, CCD/CTX corporate Receiver fields, and WEB/TEL Payment Type Codes using their actual SEC meaning.
 - **Required Data Rules**: Validates DFI account numbers, required Receiver names, converted-check serial numbers, and POP terminal city/state fields for common domestic Entry Detail layouts.
 - **WEB Credit Rules**: Requires the consumer Originator name carried in a Person-to-Person WEB credit.
-- **Readable Payment Types**: Decodes conventional `R`, `S`, and `ST` Payment Type values while preserving other Originator-defined codes.
+- **Readable Payment Types**: Requires and decodes the recognized `R`, `S`, and `ST` WEB Payment Type values.
 - **Sensitive Check Data**: Masks converted-check serial numbers by default in decoded views.
 
 ### 🧮 Automated Accounting Advice (ADV)
@@ -36,7 +42,7 @@ A professional Visual Studio Code extension for developers and treasury professi
 ### 🏛️ CIE/DNE/ENR Specialized Entries
 - **Contextual Layouts**: Decodes CIE's reversed name/reference fields and ENR's count, agency, reserved, and discretionary fields correctly.
 - **Required Identity Data**: Validates the account, individual, customer-reference, and receiving-agency fields required by each format.
-- **Non-Monetary Notices**: Enforces transaction codes `23`/`33`, zero amounts, and mandatory type-`05` addenda for DNE and ENR entries.
+- **Non-Monetary Notices**: Enforces forward codes `23`/`33` (plus valid return codes for DNE), zero amounts, and mandatory type-`05` addenda for DNE and ENR entries.
 - **Addenda Controls**: Enforces CIE/DNE single-addenda limits, ENR's 9,999-record maximum, nonblank DNE/ENR convention data, and safe ENR count repair.
 
 ### 🏧 MTE/POS/SHR Terminal Entries
@@ -53,8 +59,14 @@ A professional Visual Studio Code extension for developers and treasury professi
 - **Safe Count Repair**: Reconciles declared and attached addenda counts without changing optional check-safekeeping payloads.
 - **Sequence Integrity**: Reuses type-`05` sequence and Entry Detail linkage validation across large TRX addenda sets.
 
-### 🌐 Full IAT Support
-- **International Transactions**: Comprehensive support for International ACH Transactions (IAT).
+### 🧾 TRC/XCK Check Entries
+
+- **Explicit SEC Support**: Recognizes TRC and XCK instead of treating them as unknown SEC codes.
+- **Check Data Rules**: Applies debit-only compatibility, required account/check-serial data, and SEC-specific addenda limits.
+- **Contextual Reading**: Labels and decodes the check serial and Receiver fields using the TRC/XCK layouts.
+
+### 🌐 IAT Format Support
+- **International Transactions**: Deterministic fixed-width and relationship validation for International ACH Transactions (IAT).
 - **Contextual Parsing**: Switches field definitions automatically when an IAT batch is detected.
 - **Complete Addenda Layouts**: Decodes the authoritative fixed-width fields for mandatory types 10–16, optional remittance type 17, and foreign-correspondent-bank type 18.
 - **Mandatory Addenda**: Validates the presence and order of the seven required IAT addenda records, their required fields, reserved columns, and Entry Detail sequence links.
@@ -62,7 +74,7 @@ A professional Visual Studio Code extension for developers and treasury professi
 
 ### ↩️ Returns and Notifications of Change
 - **Dedicated Addenda Layouts**: Decodes type 99 Return and type 98 Notification of Change records with their actual fixed-width fields instead of treating them as payment addenda.
-- **Return Validation**: Validates reason-code shape, original trace and RDFI identifiers, conditional Date of Death, and the complete related trace number.
+- **Return Validation**: Uses an effective-dated Return Reason Code table and validates original trace and RDFI identifiers, conditional Date of Death, and the complete related trace number.
 - **NOC Validation**: Recognizes `COR` batches and validates transaction codes, zero-dollar amounts, corrected data, reserved fields, and required type 98 addenda.
 - **IAT Variants**: Uses the IAT-specific Return payment-amount and NOC corrected-data widths.
 - **Safe Trace Repair**: Highlights and synchronizes the complete 15-digit Return/NOC addenda trace when it differs from the related Entry Detail record.
@@ -135,7 +147,7 @@ A professional Visual Studio Code extension for developers and treasury professi
 ### 📋 Profiles, Reports, and Automation
 - **Named Profiles**: Define institution/operator profiles that extend strict or unblocked validation behavior.
 - **Explained Overrides**: Change or suppress exact rules, categories, or all rules only with a recorded reason.
-- **Versioned Rules**: Reports identify ruleset version `2026.07.14` independently from the extension version.
+- **Versioned Rules**: Reports identify ruleset version `2026.06.22.1` independently from the extension version.
 - **Redacted Reports**: Export JSON or SARIF without exposing account numbers and individual identifiers.
 - **Headless CLI**: Run the same parser and validator in CI, scripts, and pre-upload workflows.
 - **Text Detection**: High-confidence ACH content in `.txt` files can switch to ACH language mode with one click.
@@ -174,7 +186,7 @@ ach-validate --profile balanced payments.ach
 ach-validate --rule 'ACH-PHYSICAL-PADDING-COUNT=off:Processor accepts unblocked files' payments.ach
 ```
 
-The CLI exits `1` when the configured threshold is reached, `2` for usage/read failures, and `0` otherwise.
+The CLI exits `1` when the configured threshold is reached, `2` for usage/read/profile failures, and `0` otherwise. A zero exit code means the configured deterministic file-format checks passed; it is not a compliance certification.
 
 ## Named Profile Example
 

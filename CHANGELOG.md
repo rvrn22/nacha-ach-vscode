@@ -1,6 +1,17 @@
 # Change Log
 
-## Unreleased
+## [1.0.0] - 2026-07-13
+
+- Completed an adversarial review of the parser, validator, safe-fix engine, reports, CLI, extension lifecycle, and packaged artifact.
+- Made empty files, missing/empty batches, unknown SEC codes, incompatible transactions, internal blank records, duplicate/descending traces, and mixed forward/return batches fail closed.
+- Added required File/Batch Header fields, destination routing checks, service-direction checks based on transaction presence, and guarded loan debit code 55 as reversal-only.
+- Corrected COR, DNE, IAT, ADV, TRC, XCK, Originator Status, WEB Payment Type, and addenda compatibility behavior.
+- Added effective-dated Return/NOC tables, including explicit rejection of future Return Reason Code R90 until March 17, 2028.
+- Hardened every deterministic quick fix against invalid source values, overlapping padding edits, and stale preview application.
+- Added inactive-document diagnostic refresh, indexed explorer diagnostics, ADV Outline sequencing, missing decode descriptions, UTF-16-safe ranges, and exclusive report columns.
+- Added explicit deterministic-format/compliance boundaries to JSON, SARIF, documentation, and the versioned machine-readable ruleset.
+- Added packaged-VSIX smoke verification and deterministic adversarial fuzzing over 20,000 malformed inputs.
+- Updated build/test dependencies and resolved all reported npm audit vulnerabilities.
 
 - Added the TRX Corporate Entry Detail layout with debit, account, Receiver, reserved-field, addenda-presence, and 9,999-record limit validation.
 - Added safe TRX declared-count repair plus prenote, optional-payload, addenda-sequence, and Entry Detail linkage coverage.
@@ -26,7 +37,7 @@
 - Added reversal-batch classification, explorer/report counts, description repair, and transaction-kind validation.
 - Added dedicated domestic and IAT field layouts for Return (type 99) and Notification of Change (type 98) addenda.
 - Added `COR` and `IATCOR` validation, Return/NOC field rules, full-trace navigation, and deterministic trace synchronization.
-- Added Return/NOC, reversal, prenote, zero-dollar, net-position, Micro-Entry, complete-IAT, common domestic SEC, ADV, ACK/ATX, CIE/DNE/ENR, MTE/POS/SHR, and TRX regression coverage and advanced the independent ruleset to `2026.07.14`.
+- Added Return/NOC, reversal, prenote, zero-dollar, net-position, Micro-Entry, complete-IAT, common domestic SEC, ADV, ACK/ATX, CIE/DNE/ENR, MTE/POS/SHR, and TRX regression coverage and advanced the independent ruleset to `2026.06.22.1`.
 
 All notable changes to the "nacha-file-parser" extension will be documented in this file.
 
